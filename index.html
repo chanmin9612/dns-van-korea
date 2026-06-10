@@ -13,13 +13,13 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Noto Sans KR',sans-serif;background:#f5f5f3;color:#1a1a1a;font-size:14px;}
-
+ 
 /* Layout */
 .app{display:flex;height:100vh;}
 .sidebar{width:210px;min-width:210px;background:#fff;border-right:1px solid #e8e8e4;display:flex;flex-direction:column;overflow-y:auto;}
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
 .content{flex:1;overflow-y:auto;padding:24px;}
-
+ 
 /* Sidebar */
 .sidebar{background:#16213e !important;border-right:none !important;}
 .sidebar-header{padding:24px 18px 20px;border-bottom:1px solid rgba(255,255,255,.08);}
@@ -31,12 +31,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f5f3;color:#1a1a1a;font
 .nav-item:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.9);}
 .nav-item.active{background:rgba(79,142,247,.18);color:#4f8ef7;font-weight:500;border-right:2px solid #4f8ef7;}
 .nav-item .icon{font-size:15px;width:18px;text-align:center;opacity:.8;}
-
+ 
 /* Topbar */
 .topbar{background:#fff;border-bottom:1px solid #e8e8e4;padding:0 24px;height:54px;display:flex;align-items:center;justify-content:space-between;}
 .topbar-title{font-size:15px;font-weight:600;color:#1a1a1a;}
 .topbar-actions{display:flex;align-items:center;gap:8px;}
-
+ 
 /* Buttons */
 .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;font-size:13px;font-family:inherit;border:1px solid #ddd;border-radius:7px;background:#fff;color:#333;cursor:pointer;transition:all .12s;}
 .btn:hover{background:#f5f5f3;border-color:#ccc;}
@@ -45,26 +45,26 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f5f3;color:#1a1a1a;font
 .btn-sm{padding:4px 10px;font-size:12px;}
 .btn-danger{border-color:#e44;color:#c33;}
 .btn-danger:hover{background:#fff5f5;}
-
+ 
 /* Cards */
 .card{background:#fff;border:1px solid #e8e8e4;border-radius:10px;padding:18px;margin-bottom:16px;}
 .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
 .card-title{font-size:14px;font-weight:600;color:#1a1a1a;}
-
+ 
 /* Metrics */
 .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
 .metric{background:#fff;border:1px solid #e8e8e4;border-radius:10px;padding:16px;}
 .metric-label{font-size:11px;color:#888;margin-bottom:8px;font-weight:500;}
 .metric-value{font-size:24px;font-weight:600;color:#1a1a1a;}
 .metric-sub{font-size:11px;color:#aaa;margin-top:4px;}
-
+ 
 /* Table */
 table{width:100%;border-collapse:collapse;font-size:13px;}
 thead th{text-align:left;padding:9px 12px;color:#888;font-weight:500;border-bottom:1px solid #e8e8e4;font-size:12px;white-space:nowrap;}
 tbody td{padding:10px 12px;border-bottom:1px solid #f0f0ee;color:#1a1a1a;vertical-align:middle;}
 tbody tr:last-child td{border-bottom:none;}
 tbody tr:hover td{background:#fafaf8;}
-
+ 
 /* Badges */
 .badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap;}
 .badge-green{background:#e8f5ee;color:#0a6644;}
@@ -73,7 +73,7 @@ tbody tr:hover td{background:#fafaf8;}
 .badge-red{background:#feeaea;color:#b91c1c;}
 .badge-gray{background:#f0f0ee;color:#555;}
 .badge-teal{background:#e0f5f0;color:#0a7a60;}
-
+ 
 /* Flow steps */
 .flow-steps{display:flex;margin-bottom:20px;}
 .flow-step{flex:1;text-align:center;padding:9px 6px;font-size:12px;color:#aaa;background:#f5f5f3;border:1px solid #e8e8e4;position:relative;cursor:default;}
@@ -83,7 +83,7 @@ tbody tr:hover td{background:#fafaf8;}
 .flow-step:last-child{border-radius:0 7px 7px 0;}
 .flow-step.done{background:#e8f5ee;color:#0a6644;border-color:#b5ddc8;}
 .flow-step.active{background:#e8f0fb;color:#1a56a0;border-color:#b5cff5;font-weight:500;}
-
+ 
 /* Form */
 .form-group{margin-bottom:14px;}
 .form-label{display:block;font-size:12px;color:#666;margin-bottom:5px;font-weight:500;}
@@ -92,7 +92,7 @@ tbody tr:hover td{background:#fafaf8;}
 .form-textarea{min-height:72px;resize:vertical;}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 .form-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
-
+ 
 /* Modal */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);align-items:center;justify-content:center;z-index:1000;}
 .modal-overlay.open{display:flex;}
@@ -100,40 +100,40 @@ tbody tr:hover td{background:#fafaf8;}
 .modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
 .modal-title{font-size:15px;font-weight:600;}
 .modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;padding-top:16px;border-top:1px solid #e8e8e4;}
-
+ 
 /* Toast */
 .toast{position:fixed;bottom:24px;right:24px;background:#1a1a1a;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:2000;opacity:0;transform:translateY(8px);transition:all .2s;pointer-events:none;}
 .toast.show{opacity:1;transform:translateY(0);}
 .toast.success{background:#0a6644;}
 .toast.error{background:#b91c1c;}
-
+ 
 /* Bar chart */
 .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
 .bar-label{font-size:12px;color:#888;width:36px;}
 .bar-track{flex:1;height:8px;background:#f0f0ee;border-radius:4px;overflow:hidden;}
 .bar-fill{height:8px;border-radius:4px;transition:width .3s;}
 .bar-value{font-size:12px;color:#888;width:56px;text-align:right;}
-
+ 
 /* Grid helpers */
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
-
+ 
 /* Page */
 .page{display:none;}
 .page.active{display:block;}
-
+ 
 /* Empty state */
 .empty-state{text-align:center;padding:48px 24px;color:#aaa;}
 .empty-state .es-icon{font-size:36px;margin-bottom:12px;}
 .empty-state .es-text{font-size:14px;}
-
+ 
 /* Loading */
 .loading{display:flex;align-items:center;justify-content:center;padding:48px;color:#aaa;font-size:13px;gap:8px;}
-
+ 
 /* Revenue split */
 .rev-split{display:flex;height:8px;border-radius:4px;overflow:hidden;margin:8px 0;}
 .rev-van{background:#0a6644;}
 .rev-pg{background:#1a56a0;}
-
+ 
 /* Delete confirm */
 .delete-confirm{background:#fff5f5;border:1px solid #fca5a5;border-radius:8px;padding:12px;font-size:13px;color:#b91c1c;margin-bottom:14px;}
 .btn-excel{background:#fff;color:#1a6b3c;border-color:#b5ddc8;}
@@ -143,7 +143,7 @@ tbody tr:hover td{background:#fafaf8;}
 </style>
 </head>
 <body>
-
+ 
 <div class="app">
 <!-- Sidebar -->
 <nav class="sidebar">
@@ -164,7 +164,7 @@ tbody tr:hover td{background:#fafaf8;}
   <div class="nav-section">정산</div>
   <div class="nav-item" data-page="revenue"><span class="icon">💰</span>매출/정산</div>
 </nav>
-
+ 
 <!-- Main -->
 <div class="main">
   <div class="topbar">
@@ -176,7 +176,7 @@ tbody tr:hover td{background:#fafaf8;}
   </div>
 </div>
 </div>
-
+ 
 <!-- Modal -->
 <div class="modal-overlay" id="modal-overlay">
   <div class="modal" id="modal">
@@ -191,10 +191,10 @@ tbody tr:hover td{background:#fafaf8;}
     </div>
   </div>
 </div>
-
+ 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
-
+ 
 <script>
 // =============================================
 // SUPABASE 설정
@@ -203,13 +203,13 @@ const SUPABASE_URL = 'https://maqsveskwhtoqqeysnca.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1hcXN2ZXNrd2h0b3FxZXlzbmNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5NzUyNDAsImV4cCI6MjA5NjU1MTI0MH0.CJAVzPPsWiRhgJS3aaMxdsA3L176jhO2KJnMg9ZOlwQ';
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
+ 
 // =============================================
 // STATE
 // =============================================
 let currentPage = 'dashboard';
 let modalSaveHandler = null;
-
+ 
 // =============================================
 // NAV
 // =============================================
@@ -222,7 +222,7 @@ const pageConfig = {
   installs:  { title: '설치/회수 이력', addBtn: { label: '이력 등록', fn: openAddInstall } },
   revenue:   { title: '매출/정산', addBtn: { label: '매출 입력', fn: openAddRevenue } },
 };
-
+ 
 document.querySelectorAll('.nav-item').forEach(el => {
   el.addEventListener('click', () => {
     const page = el.dataset.page;
@@ -231,7 +231,7 @@ document.querySelectorAll('.nav-item').forEach(el => {
     loadPage(page);
   });
 });
-
+ 
 function loadPage(page) {
   currentPage = page;
   const cfg = pageConfig[page];
@@ -251,7 +251,7 @@ function loadPage(page) {
     inventory: renderInventory, merchants: renderMerchants, installs: renderInstalls, revenue: renderRevenue };
   renderers[page]();
 }
-
+ 
 // =============================================
 // TOAST
 // =============================================
@@ -261,7 +261,7 @@ function toast(msg, type = 'success') {
   t.className = `toast show ${type}`;
   setTimeout(() => t.className = 'toast', 2500);
 }
-
+ 
 // =============================================
 // MODAL
 // =============================================
@@ -279,7 +279,7 @@ function closeModal() {
 document.getElementById('modal-overlay').addEventListener('click', e => {
   if (e.target === e.currentTarget) closeModal();
 });
-
+ 
 // =============================================
 // DASHBOARD
 // =============================================
@@ -293,14 +293,14 @@ async function renderDashboard() {
       db.from('revenue').select('*'),
       db.from('installs').select('*, merchants(name), terminals(name)').order('install_date', { ascending: false }).limit(5),
     ]);
-
+ 
     const totalStock = (terminals || []).reduce((s, t) => s + (t.stock || 0), 0);
     const totalMerchants = (merchants || []).length;
     const thisMonth = new Date().toISOString().slice(0, 7);
     const monthRevenue = (revenue || []).filter(r => r.month === thisMonth);
     const vanRevenue = monthRevenue.reduce((s, r) => s + (r.van_revenue || 0), 0);
     const pgRevenue = monthRevenue.reduce((s, r) => s + (r.pg_revenue || 0), 0);
-
+ 
     content.innerHTML = `
     <div class="metrics">
       <div class="metric"><div class="metric-label">총 단말기 재고</div><div class="metric-value">${totalStock.toLocaleString()}</div><div class="metric-sub">${(terminals||[]).length}종 단말기</div></div>
@@ -328,7 +328,7 @@ async function renderDashboard() {
     content.innerHTML = dbError(e);
   }
 }
-
+ 
 // =============================================
 // TERMINALS
 // =============================================
@@ -357,7 +357,7 @@ async function renderTerminals() {
     </div>`;
   } catch(e) { content.innerHTML = dbError(e); }
 }
-
+ 
 function openAddTerminal() {
   openModal('단말기 추가', terminalForm(), async () => {
     const name = v('t-name'); const model = v('t-model'); const type = v('t-type');
@@ -368,7 +368,7 @@ function openAddTerminal() {
     toast('단말기가 추가되었습니다.'); closeModal(); renderTerminals();
   });
 }
-
+ 
 function openEditTerminal(t) {
   openModal('단말기 편집', terminalForm(t), async () => {
     const name = v('t-name'); const model = v('t-model'); const type = v('t-type');
@@ -379,14 +379,14 @@ function openEditTerminal(t) {
     toast('수정되었습니다.'); closeModal(); renderTerminals();
   });
 }
-
+ 
 async function deleteTerminal(id, name) {
   if (!confirm(`"${name}" 단말기를 삭제할까요?`)) return;
   const { error } = await db.from('terminals').delete().eq('id', id);
   if (error) return toast('삭제 실패: ' + error.message, 'error');
   toast('삭제되었습니다.'); renderTerminals();
 }
-
+ 
 function terminalForm(t = {}) {
   return `
   <div class="form-row"><div class="form-group"><label class="form-label">단말기명 *</label><input id="t-name" class="form-input" value="${t.name||''}" placeholder="예: IC카드 단말기 A형"/></div>
@@ -398,7 +398,7 @@ function terminalForm(t = {}) {
   </div>
   <div class="form-group"><label class="form-label">상태</label><select id="t-status" class="form-select"><option ${t.status==='판매중'?'selected':''}>판매중</option><option ${t.status==='단종예정'?'selected':''}>단종예정</option><option ${t.status==='단종'?'selected':''}>단종</option></select></div>`;
 }
-
+ 
 // =============================================
 // ORDERS
 // =============================================
@@ -435,7 +435,7 @@ async function renderOrders() {
     </div>`;
   } catch(e) { content.innerHTML = dbError(e); }
 }
-
+ 
 function openAddOrder() {
   db.from('terminals').select('name').then(({ data }) => {
     const opts = (data||[]).map(t => `<option>${t.name}</option>`).join('');
@@ -459,7 +459,7 @@ function openAddOrder() {
     });
   });
 }
-
+ 
 function openEditOrder(o) {
   openModal('발주 수정', `
   <div class="form-row">
@@ -478,14 +478,14 @@ function openEditOrder(o) {
     toast('수정되었습니다.'); closeModal(); renderOrders();
   });
 }
-
+ 
 async function deleteOrder(id) {
   if (!confirm('이 발주를 삭제할까요?')) return;
   const { error } = await db.from('orders').delete().eq('id', id);
   if (error) return toast('삭제 실패', 'error');
   toast('삭제되었습니다.'); renderOrders();
 }
-
+ 
 // =============================================
 // INVENTORY
 // =============================================
@@ -497,16 +497,16 @@ async function renderInventory() {
       db.from('installs').select('terminal_id, type'),
       db.from('orders').select('terminal_name, quantity, status'),
     ]);
-
+ 
     const installed = {};
     (installs||[]).forEach(i => { if(i.type==='설치') installed[i.terminal_id] = (installed[i.terminal_id]||0)+1; else installed[i.terminal_id] = (installed[i.terminal_id]||0)-1; });
     const pending = {};
     (orders||[]).filter(o=>o.status==='배송중'||o.status==='발주확인'||o.status==='발주요청').forEach(o => { pending[o.terminal_name] = (pending[o.terminal_name]||0) + o.quantity; });
-
+ 
     const totalStock = (terminals||[]).reduce((s,t)=>s+(t.stock||0),0);
     const totalInstalled = Object.values(installed).reduce((s,v)=>s+Math.max(0,v),0);
     const totalPending = Object.values(pending).reduce((s,v)=>s+v,0);
-
+ 
     content.innerHTML = `
     <div class="metrics">
       <div class="metric"><div class="metric-label">창고 재고</div><div class="metric-value">${totalStock}</div></div>
@@ -528,7 +528,7 @@ async function renderInventory() {
     </div>`;
   } catch(e) { content.innerHTML = dbError(e); }
 }
-
+ 
 // =============================================
 // MERCHANTS
 // =============================================
@@ -556,7 +556,7 @@ async function renderMerchants() {
     </div>`;
   } catch(e) { content.innerHTML = dbError(e); }
 }
-
+ 
 function merchantForm(m = {}) {
   return `
   <div class="form-row">
@@ -570,7 +570,7 @@ function merchantForm(m = {}) {
   </div>
   <div class="form-group"><label class="form-label">메모</label><textarea id="m-note" class="form-textarea">${m.note||''}</textarea></div>`;
 }
-
+ 
 function openAddMerchant() {
   openModal('가맹점 추가', merchantForm(), async () => {
     const name = v('m-name');
@@ -580,7 +580,7 @@ function openAddMerchant() {
     toast('가맹점이 추가되었습니다.'); closeModal(); renderMerchants();
   });
 }
-
+ 
 function openEditMerchant(m) {
   openModal('가맹점 편집', merchantForm(m), async () => {
     const name = v('m-name');
@@ -590,14 +590,14 @@ function openEditMerchant(m) {
     toast('수정되었습니다.'); closeModal(); renderMerchants();
   });
 }
-
+ 
 async function deleteMerchant(id, name) {
   if (!confirm(`"${name}" 가맹점을 삭제할까요?`)) return;
   const { error } = await db.from('merchants').delete().eq('id', id);
   if (error) return toast('삭제 실패', 'error');
   toast('삭제되었습니다.'); renderMerchants();
 }
-
+ 
 // =============================================
 // INSTALLS
 // =============================================
@@ -623,7 +623,7 @@ async function renderInstalls() {
     </div>`;
   } catch(e) { content.innerHTML = dbError(e); }
 }
-
+ 
 function openAddInstall() {
   Promise.all([db.from('merchants').select('id,name').eq('status','운영중'), db.from('terminals').select('id,name')]).then(([{data:ms},{data:ts}]) => {
     const mOpts = (ms||[]).map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
@@ -649,14 +649,14 @@ function openAddInstall() {
     });
   });
 }
-
+ 
 async function deleteInstall(id) {
   if (!confirm('이 이력을 삭제할까요?')) return;
   const { error } = await db.from('installs').delete().eq('id', id);
   if (error) return toast('삭제 실패', 'error');
   toast('삭제되었습니다.'); renderInstalls();
 }
-
+ 
 // =============================================
 // REVENUE
 // =============================================
@@ -665,7 +665,7 @@ async function renderRevenue() {
   try {
     const { data, error } = await db.from('revenue').select('*, merchants(name)').order('month', { ascending: false });
     if (error) throw error;
-
+ 
     const thisMonth = new Date().toISOString().slice(0,7);
     const thisMonthData = (data||[]).filter(r=>r.month===thisMonth);
     const totalVan = thisMonthData.reduce((s,r)=>s+(r.van_revenue||0),0);
@@ -673,7 +673,7 @@ async function renderRevenue() {
     const total = totalVan + totalPg;
     const vanPct = total>0 ? Math.round(totalVan/total*100) : 0;
     const pgPct = 100 - vanPct;
-
+ 
     content.innerHTML = `
     <div class="metrics">
       <div class="metric"><div class="metric-label">이번 달 총 수익</div><div class="metric-value" style="font-size:18px">₩${total.toLocaleString()}원</div></div>
@@ -703,7 +703,7 @@ async function renderRevenue() {
     </div>`;
   } catch(e) { content.innerHTML = dbError(e); }
 }
-
+ 
 function openAddRevenue() {
   db.from('merchants').select('id,name').then(({data}) => {
     const opts = (data||[]).map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
@@ -726,14 +726,14 @@ function openAddRevenue() {
     });
   });
 }
-
+ 
 async function deleteRevenue(id) {
   if (!confirm('이 항목을 삭제할까요?')) return;
   const { error } = await db.from('revenue').delete().eq('id', id);
   if (error) return toast('삭제 실패', 'error');
   toast('삭제되었습니다.'); renderRevenue();
 }
-
+ 
 // =============================================
 // EXPORT FUNCTIONS
 // =============================================
@@ -747,11 +747,11 @@ function exportTableExcel(tbodyId, filename) {
   XLSX.writeFile(wb, filename + '_' + today() + '.xlsx');
   toast('엑셀 파일이 저장되었습니다.');
 }
-
+ 
 function exportRevenueExcel() {
   exportTableExcel('revenue-list', '매출정산내역');
 }
-
+ 
 function exportTablePDF(title, tbodyId) {
   const { jsPDF } = window.jspdf;
   const tbody = document.getElementById(tbodyId);
@@ -775,42 +775,42 @@ function exportTablePDF(title, tbodyId) {
   doc.save(title + '_' + today() + '.pdf');
   toast('PDF 파일이 저장되었습니다.');
 }
-
+ 
 function exportRevenuePDF() {
   exportTablePDF('매출/정산 내역', 'revenue-list');
 }
-
+ 
 // =============================================
 // HELPERS
 // =============================================
 function v(id) { return document.getElementById(id)?.value || ''; }
 function today() { return new Date().toISOString().slice(0,10); }
-
+ 
 function typeBadge(type) {
   if (type==='VAN') return '<span class="badge badge-blue">VAN</span>';
   if (type==='PG') return '<span class="badge badge-amber">PG</span>';
   return '<span class="badge badge-gray">VAN+PG</span>';
 }
-
+ 
 function statusBadge(status, ctx) {
   const map = { '발주요청':'badge-gray','발주확인':'badge-blue','배송중':'badge-amber','입고완료':'badge-green','설치완료':'badge-teal' };
   return `<span class="badge ${map[status]||'badge-gray'}">${status}</span>`;
 }
-
+ 
 function merchantStatus(s) {
   if (s==='운영중') return '<span class="badge badge-green">운영중</span>';
   if (s==='계약중') return '<span class="badge badge-amber">계약중</span>';
   return '<span class="badge badge-red">해지</span>';
 }
-
+ 
 function emptyState(msg) {
   return `<div class="empty-state"><div class="es-icon">📭</div><div class="es-text">${msg}</div></div>`;
 }
-
+ 
 function dbError(e) {
   return `<div class="card"><div style="color:#b91c1c;font-size:13px;padding:16px;">⚠️ 데이터베이스 연결 오류: ${e.message}<br><br><strong>supabase.js에 올바른 URL과 키를 입력했는지 확인해주세요.</strong></div></div>`;
 }
-
+ 
 // =============================================
 // INIT
 // =============================================
@@ -818,3 +818,4 @@ loadPage('dashboard');
 </script>
 </body>
 </html>
+ 
