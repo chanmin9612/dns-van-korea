@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>디앤에스밴코리아 관리 시스템</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
@@ -18,14 +21,16 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f5f3;color:#1a1a1a;font
 .content{flex:1;overflow-y:auto;padding:24px;}
 
 /* Sidebar */
-.sidebar-header{padding:20px 16px 18px;border-bottom:1px solid #e8e8e4;}
-.sidebar-company{font-size:13px;font-weight:600;color:#1a1a1a;line-height:1.4;}
-.sidebar-sub{font-size:11px;color:#888;margin-top:3px;}
-.nav-section{padding:14px 16px 4px;font-size:10px;font-weight:600;color:#aaa;letter-spacing:.08em;text-transform:uppercase;}
-.nav-item{display:flex;align-items:center;gap:9px;padding:8px 16px;font-size:13px;color:#555;cursor:pointer;border-radius:0;transition:all .12s;}
-.nav-item:hover{background:#f5f5f3;color:#1a1a1a;}
-.nav-item.active{background:#f0faf5;color:#0a6644;font-weight:500;}
-.nav-item .icon{font-size:16px;width:18px;text-align:center;}
+.sidebar{background:#16213e !important;border-right:none !important;}
+.sidebar-header{padding:24px 18px 20px;border-bottom:1px solid rgba(255,255,255,.08);}
+.sidebar-logo-mark{width:32px;height:32px;background:linear-gradient(135deg,#4f8ef7,#1a56d6);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;margin-bottom:12px;letter-spacing:-.5px;}
+.sidebar-company{font-size:13px;font-weight:600;color:#fff;line-height:1.4;}
+.sidebar-sub{font-size:11px;color:rgba(255,255,255,.4);margin-top:3px;}
+.nav-section{padding:16px 18px 5px;font-size:10px;font-weight:600;color:rgba(255,255,255,.3);letter-spacing:.1em;text-transform:uppercase;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 18px;font-size:13px;color:rgba(255,255,255,.6);cursor:pointer;border-radius:0;transition:all .12s;margin:1px 0;}
+.nav-item:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.9);}
+.nav-item.active{background:rgba(79,142,247,.18);color:#4f8ef7;font-weight:500;border-right:2px solid #4f8ef7;}
+.nav-item .icon{font-size:15px;width:18px;text-align:center;opacity:.8;}
 
 /* Topbar */
 .topbar{background:#fff;border-bottom:1px solid #e8e8e4;padding:0 24px;height:54px;display:flex;align-items:center;justify-content:space-between;}
@@ -131,6 +136,10 @@ tbody tr:hover td{background:#fafaf8;}
 
 /* Delete confirm */
 .delete-confirm{background:#fff5f5;border:1px solid #fca5a5;border-radius:8px;padding:12px;font-size:13px;color:#b91c1c;margin-bottom:14px;}
+.btn-excel{background:#fff;color:#1a6b3c;border-color:#b5ddc8;}
+.btn-excel:hover{background:#e8f5ee;}
+.btn-pdf{background:#fff;color:#b91c1c;border-color:#fca5a5;}
+.btn-pdf:hover{background:#fff5f5;}
 </style>
 </head>
 <body>
@@ -139,6 +148,7 @@ tbody tr:hover td{background:#fafaf8;}
 <!-- Sidebar -->
 <nav class="sidebar">
   <div class="sidebar-header">
+    <div class="sidebar-logo-mark">D&S</div>
     <div class="sidebar-company">디앤에스밴코리아</div>
     <div class="sidebar-sub">VAN/PG 관리 시스템</div>
   </div>
@@ -328,7 +338,7 @@ async function renderTerminals() {
     const { data, error } = await db.from('terminals').select('*').order('name');
     if (error) throw error;
     content.innerHTML = `<div class="card">
-      <div class="card-header"><div class="card-title">등록된 단말기 종류</div></div>
+      <div class="card-header"><div class="card-title">등록된 단말기 종류</div><div style="display:flex;gap:8px;"><button class="btn btn-sm btn-excel" onclick="exportTableExcel('terminal-list','단말기목록')">📊 엑셀 저장</button><button class="btn btn-sm btn-pdf" onclick="exportTablePDF('단말기 관리','terminal-list')">📄 PDF 저장</button></div></div>
       ${(data||[]).length === 0 ? emptyState('등록된 단말기가 없습니다.<br>오른쪽 상단에서 추가해주세요.') : `
       <table><thead><tr><th>단말기명</th><th>모델코드</th><th>구분</th><th>단가</th><th>재고</th><th>상태</th><th></th></tr></thead><tbody>
       ${data.map(t => `<tr>
@@ -528,9 +538,9 @@ async function renderMerchants() {
     const { data, error } = await db.from('merchants').select('*').order('name');
     if (error) throw error;
     content.innerHTML = `<div class="card">
-      <div class="card-header"><div class="card-title">가맹점 목록</div></div>
+      <div class="card-header"><div class="card-title">가맹점 목록</div><div style="display:flex;gap:8px;"><button class="btn btn-sm btn-excel" onclick="exportTableExcel('merchant-list','가맹점목록')">📊 엑셀 저장</button><button class="btn btn-sm btn-pdf" onclick="exportTablePDF('가맹점 관리','merchant-list')">📄 PDF 저장</button></div></div>
       ${(data||[]).length===0 ? emptyState('등록된 가맹점이 없습니다.') : `
-      <table><thead><tr><th>가맹점명</th><th>사업자번호</th><th>주소</th><th>구분</th><th>상태</th><th></th></tr></thead><tbody>
+      <table><thead><tr><th>가맹점명</th><th>사업자번호</th><th>주소</th><th>구분</th><th>상태</th><th></th></tr></thead><tbody id='merchant-list'>
       ${data.map(m => `<tr>
         <td><strong>${m.name}</strong></td>
         <td style="color:#888">${m.biz_no||'-'}</td>
@@ -597,9 +607,9 @@ async function renderInstalls() {
     const { data, error } = await db.from('installs').select('*, merchants(name), terminals(name)').order('install_date', { ascending: false });
     if (error) throw error;
     content.innerHTML = `<div class="card">
-      <div class="card-header"><div class="card-title">설치 / 회수 이력</div></div>
+      <div class="card-header"><div class="card-title">설치 / 회수 이력</div><div style="display:flex;gap:8px;"><button class="btn btn-sm btn-excel" onclick="exportTableExcel('install-list','설치회수이력')">📊 엑셀 저장</button><button class="btn btn-sm btn-pdf" onclick="exportTablePDF('설치/회수 이력','install-list')">📄 PDF 저장</button></div></div>
       ${(data||[]).length===0 ? emptyState('이력이 없습니다.') : `
-      <table><thead><tr><th>날짜</th><th>가맹점</th><th>단말기</th><th>시리얼(S/N)</th><th>구분</th><th>담당자</th><th></th></tr></thead><tbody>
+      <table><thead><tr><th>날짜</th><th>가맹점</th><th>단말기</th><th>시리얼(S/N)</th><th>구분</th><th>담당자</th><th></th></tr></thead><tbody id='install-list'>
       ${data.map(i => `<tr>
         <td>${i.install_date||'-'}</td>
         <td>${i.merchants?.name||'-'}</td>
@@ -666,9 +676,9 @@ async function renderRevenue() {
 
     content.innerHTML = `
     <div class="metrics">
-      <div class="metric"><div class="metric-label">이번 달 총 수익</div><div class="metric-value">₩${(total/10000).toFixed(0)}만</div></div>
-      <div class="metric"><div class="metric-label">VAN 수익</div><div class="metric-value">₩${(totalVan/10000).toFixed(0)}만</div><div class="metric-sub">${vanPct}%</div></div>
-      <div class="metric"><div class="metric-label">PG 수익</div><div class="metric-value">₩${(totalPg/10000).toFixed(0)}만</div><div class="metric-sub">${pgPct}%</div></div>
+      <div class="metric"><div class="metric-label">이번 달 총 수익</div><div class="metric-value" style="font-size:18px">₩${total.toLocaleString()}원</div></div>
+      <div class="metric"><div class="metric-label">VAN 수익</div><div class="metric-value" style="font-size:18px">₩${totalVan.toLocaleString()}원</div><div class="metric-sub">${vanPct}%</div></div>
+      <div class="metric"><div class="metric-label">PG 수익</div><div class="metric-value" style="font-size:18px">₩${totalPg.toLocaleString()}원</div><div class="metric-sub">${pgPct}%</div></div>
       <div class="metric"><div class="metric-label">이번 달 입력 건수</div><div class="metric-value">${thisMonthData.length}건</div></div>
     </div>
     ${total>0?`<div class="card"><div class="card-header"><div class="card-title">VAN vs PG 비중</div></div>
@@ -677,9 +687,9 @@ async function renderRevenue() {
       <span>🟢 VAN ${vanPct}%</span><span>🔵 PG ${pgPct}%</span>
     </div></div>`:''}
     <div class="card">
-      <div class="card-header"><div class="card-title">매출 내역</div></div>
+      <div class="card-header"><div class="card-title">매출 내역</div><div style="display:flex;gap:8px;"><button class="btn btn-sm btn-excel" onclick="exportRevenueExcel()">📊 엑셀 저장</button><button class="btn btn-sm btn-pdf" onclick="exportRevenuePDF()">📄 PDF 저장</button></div></div>
       ${(data||[]).length===0 ? emptyState('매출 내역이 없습니다.') : `
-      <table><thead><tr><th>월</th><th>가맹점</th><th>가맹점 매출</th><th>VAN 수익</th><th>PG 수익</th><th>메모</th><th></th></tr></thead><tbody>
+      <table><thead><tr><th>월</th><th>가맹점</th><th>가맹점 매출</th><th>VAN 수익</th><th>PG 수익</th><th>메모</th><th></th></tr></thead><tbody id='revenue-list'>
       ${data.map(r => `<tr>
         <td>${r.month}</td>
         <td>${r.merchants?.name||'-'}</td>
@@ -722,6 +732,52 @@ async function deleteRevenue(id) {
   const { error } = await db.from('revenue').delete().eq('id', id);
   if (error) return toast('삭제 실패', 'error');
   toast('삭제되었습니다.'); renderRevenue();
+}
+
+// =============================================
+// EXPORT FUNCTIONS
+// =============================================
+function exportTableExcel(tbodyId, filename) {
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return toast('내보낼 데이터가 없습니다.', 'error');
+  const table = tbody.closest('table');
+  const ws = XLSX.utils.table_to_sheet(table);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, filename);
+  XLSX.writeFile(wb, filename + '_' + today() + '.xlsx');
+  toast('엑셀 파일이 저장되었습니다.');
+}
+
+function exportRevenueExcel() {
+  exportTableExcel('revenue-list', '매출정산내역');
+}
+
+function exportTablePDF(title, tbodyId) {
+  const { jsPDF } = window.jspdf;
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return toast('내보낼 데이터가 없습니다.', 'error');
+  const table = tbody.closest('table');
+  const headers = [];
+  const rows = [];
+  table.querySelectorAll('thead th').forEach(th => headers.push(th.innerText));
+  table.querySelectorAll('tbody tr').forEach(tr => {
+    const row = [];
+    tr.querySelectorAll('td').forEach((td, i) => {
+      if (i < headers.length) row.push(td.innerText.trim());
+    });
+    if (row.length) rows.push(row);
+  });
+  const doc = new jsPDF({ orientation: 'landscape' });
+  doc.setFont('helvetica');
+  doc.setFontSize(14);
+  doc.text(title + ' (' + today() + ')', 14, 16);
+  doc.autoTable({ head: [headers], body: rows, startY: 22, styles: { fontSize: 9 }, headStyles: { fillColor: [22, 33, 62] } });
+  doc.save(title + '_' + today() + '.pdf');
+  toast('PDF 파일이 저장되었습니다.');
+}
+
+function exportRevenuePDF() {
+  exportTablePDF('매출/정산 내역', 'revenue-list');
 }
 
 // =============================================
