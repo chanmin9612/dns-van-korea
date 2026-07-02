@@ -6,62 +6,64 @@
 <title>디앤에스밴코리아 관리 시스템</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Noto Sans KR',sans-serif;background:#f5f5f3;color:#1a1a1a;font-size:14px;}
-
-/* Layout */
+body{font-family:'Noto Sans KR',sans-serif;background:#f0f2f5;color:#1a1a1a;font-size:14px;}
 .app{display:flex;height:100vh;}
-.sidebar{width:210px;min-width:210px;background:#fff;border-right:1px solid #e8e8e4;display:flex;flex-direction:column;overflow-y:auto;}
-.main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
-.content{flex:1;overflow-y:auto;padding:24px;}
 
 /* Sidebar */
-.sidebar{background:#16213e !important;border-right:none !important;}
-.sidebar-header{padding:24px 18px 20px;border-bottom:1px solid rgba(255,255,255,.08);}
-.sidebar-logo-mark{width:32px;height:32px;background:linear-gradient(135deg,#4f8ef7,#1a56d6);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;margin-bottom:12px;letter-spacing:-.5px;}
-.sidebar-company{font-size:13px;font-weight:600;color:#fff;line-height:1.4;}
-.sidebar-sub{font-size:11px;color:rgba(255,255,255,.4);margin-top:3px;}
-.nav-section{padding:16px 18px 5px;font-size:10px;font-weight:600;color:rgba(255,255,255,.3);letter-spacing:.1em;text-transform:uppercase;}
-.nav-item{display:flex;align-items:center;gap:10px;padding:9px 18px;font-size:13px;color:rgba(255,255,255,.6);cursor:pointer;border-radius:0;transition:all .12s;margin:1px 0;}
+.sidebar{width:210px;min-width:210px;background:#16213e;display:flex;flex-direction:column;overflow-y:auto;}
+.sidebar-header{padding:22px 18px 18px;border-bottom:1px solid rgba(255,255,255,.08);}
+.logo-mark{width:36px;height:36px;background:linear-gradient(135deg,#4f8ef7,#1a56d6);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;margin-bottom:11px;}
+.co-name{font-size:13px;font-weight:600;color:#fff;}
+.co-sub{font-size:11px;color:rgba(255,255,255,.38);margin-top:3px;}
+.nav-section{padding:16px 18px 5px;font-size:9px;font-weight:600;color:rgba(255,255,255,.28);letter-spacing:.1em;text-transform:uppercase;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 18px;font-size:13px;color:rgba(255,255,255,.55);cursor:pointer;margin:1px 0;transition:all .12s;}
 .nav-item:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.9);}
 .nav-item.active{background:rgba(79,142,247,.18);color:#4f8ef7;font-weight:500;border-right:2px solid #4f8ef7;}
-.nav-item .icon{font-size:15px;width:18px;text-align:center;opacity:.8;}
+.nav-item .icon{font-size:15px;width:18px;text-align:center;}
+.nav-badge{margin-left:auto;background:#e74c3c;color:#fff;font-size:10px;font-weight:600;padding:1px 6px;border-radius:10px;}
 
-/* Topbar */
+/* Main */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
 .topbar{background:#fff;border-bottom:1px solid #e8e8e4;padding:0 24px;height:54px;display:flex;align-items:center;justify-content:space-between;}
 .topbar-title{font-size:15px;font-weight:600;color:#1a1a1a;}
-.topbar-actions{display:flex;align-items:center;gap:8px;}
+.topbar-actions{display:flex;gap:8px;}
+.content{flex:1;overflow-y:auto;padding:22px 24px;}
+.page{display:none;}
+.page.active{display:block;}
 
 /* Buttons */
 .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;font-size:13px;font-family:inherit;border:1px solid #ddd;border-radius:7px;background:#fff;color:#333;cursor:pointer;transition:all .12s;}
-.btn:hover{background:#f5f5f3;border-color:#ccc;}
-.btn-primary{background:#0a6644;color:#fff;border-color:#0a6644;}
-.btn-primary:hover{background:#085538;}
+.btn:hover{background:#f5f5f3;}
+.btn-primary{background:#16213e;color:#fff;border-color:#16213e;}
+.btn-primary:hover{background:#0f1a30;}
 .btn-sm{padding:4px 10px;font-size:12px;}
-.btn-danger{border-color:#e44;color:#c33;}
+.btn-danger{border-color:#fca5a5;color:#b91c1c;}
 .btn-danger:hover{background:#fff5f5;}
+.btn-success{background:#e8f5ee;color:#0a6644;border-color:#b5ddc8;}
+.btn-excel{background:#fff;color:#1a6b3c;border-color:#b5ddc8;}
+.btn-excel:hover{background:#e8f5ee;}
 
 /* Cards */
 .card{background:#fff;border:1px solid #e8e8e4;border-radius:10px;padding:18px;margin-bottom:16px;}
 .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
-.card-title{font-size:14px;font-weight:600;color:#1a1a1a;}
+.card-title{font-size:14px;font-weight:600;}
 
 /* Metrics */
 .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
 .metric{background:#fff;border:1px solid #e8e8e4;border-radius:10px;padding:16px;}
 .metric-label{font-size:11px;color:#888;margin-bottom:8px;font-weight:500;}
-.metric-value{font-size:24px;font-weight:600;color:#1a1a1a;}
+.metric-value{font-size:22px;font-weight:600;color:#1a1a1a;}
 .metric-sub{font-size:11px;color:#aaa;margin-top:4px;}
+.metric.alert{border-color:#fca5a5;background:#fff5f5;}
+.metric.alert .metric-value{color:#b91c1c;}
 
 /* Table */
 table{width:100%;border-collapse:collapse;font-size:13px;}
 thead th{text-align:left;padding:9px 12px;color:#888;font-weight:500;border-bottom:1px solid #e8e8e4;font-size:12px;white-space:nowrap;}
-tbody td{padding:10px 12px;border-bottom:1px solid #f0f0ee;color:#1a1a1a;vertical-align:middle;}
+tbody td{padding:10px 12px;border-bottom:1px solid #f0f0ee;vertical-align:middle;}
 tbody tr:last-child td{border-bottom:none;}
 tbody tr:hover td{background:#fafaf8;}
 
@@ -72,23 +74,23 @@ tbody tr:hover td{background:#fafaf8;}
 .badge-blue{background:#e8f0fb;color:#1a56a0;}
 .badge-red{background:#feeaea;color:#b91c1c;}
 .badge-gray{background:#f0f0ee;color:#555;}
+.badge-purple{background:#f3e8ff;color:#6b21a8;}
 .badge-teal{background:#e0f5f0;color:#0a7a60;}
+.badge-navy{background:#e8ecf5;color:#16213e;}
 
 /* Flow steps */
-.flow-steps{display:flex;margin-bottom:20px;}
-.flow-step{flex:1;text-align:center;padding:9px 6px;font-size:12px;color:#aaa;background:#f5f5f3;border:1px solid #e8e8e4;position:relative;cursor:default;}
-.flow-step:not(:last-child){margin-right:-1px;}
-.flow-step:not(:last-child)::after{content:'›';position:absolute;right:-8px;top:50%;transform:translateY(-50%);color:#ccc;font-size:16px;z-index:1;}
-.flow-step:first-child{border-radius:7px 0 0 7px;}
-.flow-step:last-child{border-radius:0 7px 7px 0;}
-.flow-step.done{background:#e8f5ee;color:#0a6644;border-color:#b5ddc8;}
-.flow-step.active{background:#e8f0fb;color:#1a56a0;border-color:#b5cff5;font-weight:500;}
+.flow-steps{display:flex;margin-bottom:20px;border-radius:8px;overflow:hidden;border:1px solid #e8e8e4;}
+.flow-step{flex:1;text-align:center;padding:10px 6px;font-size:11px;color:#aaa;background:#f5f5f3;cursor:pointer;transition:all .12s;position:relative;}
+.flow-step:not(:last-child){border-right:1px solid #e8e8e4;}
+.flow-step.done{background:#e8f5ee;color:#0a6644;}
+.flow-step.active{background:#16213e;color:#fff;font-weight:500;}
+.flow-step:hover:not(.active){background:#ebebeb;}
 
 /* Form */
 .form-group{margin-bottom:14px;}
 .form-label{display:block;font-size:12px;color:#666;margin-bottom:5px;font-weight:500;}
 .form-input,.form-select,.form-textarea{width:100%;padding:8px 11px;font-size:13px;font-family:inherit;border:1px solid #ddd;border-radius:7px;background:#fff;color:#1a1a1a;outline:none;transition:border-color .12s;}
-.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:#0a6644;}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:#16213e;}
 .form-textarea{min-height:72px;resize:vertical;}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 .form-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
@@ -96,7 +98,7 @@ tbody tr:hover td{background:#fafaf8;}
 /* Modal */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);align-items:center;justify-content:center;z-index:1000;}
 .modal-overlay.open{display:flex;}
-.modal{background:#fff;border-radius:12px;padding:24px;width:500px;max-width:95vw;max-height:90vh;overflow-y:auto;}
+.modal{background:#fff;border-radius:12px;padding:24px;width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;}
 .modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
 .modal-title{font-size:15px;font-weight:600;}
 .modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;padding-top:16px;border-top:1px solid #e8e8e4;}
@@ -107,60 +109,56 @@ tbody tr:hover td{background:#fafaf8;}
 .toast.success{background:#0a6644;}
 .toast.error{background:#b91c1c;}
 
-/* Bar chart */
-.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
-.bar-label{font-size:12px;color:#888;width:36px;}
-.bar-track{flex:1;height:8px;background:#f0f0ee;border-radius:4px;overflow:hidden;}
-.bar-fill{height:8px;border-radius:4px;transition:width .3s;}
-.bar-value{font-size:12px;color:#888;width:56px;text-align:right;}
-
-/* Grid helpers */
+/* Grid */
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
 
-/* Page */
-.page{display:none;}
-.page.active{display:block;}
-
-/* Empty state */
-.empty-state{text-align:center;padding:48px 24px;color:#aaa;}
+/* Empty */
+.empty-state{text-align:center;padding:48px;color:#aaa;}
 .empty-state .es-icon{font-size:36px;margin-bottom:12px;}
-.empty-state .es-text{font-size:14px;}
 
-/* Loading */
-.loading{display:flex;align-items:center;justify-content:center;padding:48px;color:#aaa;font-size:13px;gap:8px;}
+/* Priority */
+.priority-high{color:#b91c1c;font-weight:600;}
+.priority-mid{color:#a05c00;}
+.priority-low{color:#888;}
 
-/* Revenue split */
-.rev-split{display:flex;height:8px;border-radius:4px;overflow:hidden;margin:8px 0;}
-.rev-van{background:#0a6644;}
-.rev-pg{background:#1a56a0;}
+/* CS status bar */
+.status-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+.status-chip{padding:5px 12px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid #e8e8e4;background:#fff;color:#555;transition:all .12s;}
+.status-chip.active{background:#16213e;color:#fff;border-color:#16213e;}
 
-/* Delete confirm */
-.delete-confirm{background:#fff5f5;border:1px solid #fca5a5;border-radius:8px;padding:12px;font-size:13px;color:#b91c1c;margin-bottom:14px;}
-.btn-excel{background:#fff;color:#1a6b3c;border-color:#b5ddc8;}
-.btn-excel:hover{background:#e8f5ee;}
-.btn-pdf{background:#fff;color:#b91c1c;border-color:#fca5a5;}
-.btn-pdf:hover{background:#fff5f5;}
+/* Task type tabs */
+.type-tabs{display:flex;gap:8px;margin-bottom:16px;}
+.type-tab{padding:6px 16px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid #e8e8e4;background:#fff;color:#555;font-weight:500;}
+.type-tab.active{background:#16213e;color:#fff;border-color:#16213e;}
+
+/* Stock bar */
+.stock-bar{height:6px;background:#f0f0ee;border-radius:3px;margin-top:4px;}
+.stock-fill{height:6px;border-radius:3px;}
+
+.loading{text-align:center;padding:48px;color:#aaa;font-size:13px;}
 </style>
 </head>
 <body>
-
 <div class="app">
+
 <!-- Sidebar -->
 <nav class="sidebar">
   <div class="sidebar-header">
-    <div class="sidebar-logo-mark">D&S</div>
-    <div class="sidebar-company">디앤에스밴코리아</div>
-    <div class="sidebar-sub">VAN/PG 관리 시스템</div>
+    <div class="logo-mark">D&S</div>
+    <div class="co-name">디앤에스밴코리아</div>
+    <div class="co-sub">VAN/PG 관리 시스템</div>
   </div>
   <div class="nav-section">메인</div>
   <div class="nav-item active" data-page="dashboard"><span class="icon">📊</span>대시보드</div>
-  <div class="nav-section">단말기</div>
-  <div class="nav-item" data-page="terminals"><span class="icon">📟</span>단말기 관리</div>
-  <div class="nav-item" data-page="orders"><span class="icon">📦</span>발주 관리</div>
-  <div class="nav-item" data-page="inventory"><span class="icon">🗄️</span>재고 현황</div>
+  <div class="nav-section">업무</div>
+  <div class="nav-item" data-page="tasks"><span class="icon">📋</span>업무 현황<span class="nav-badge" id="badge-tasks">0</span></div>
+  <div class="nav-item" data-page="cs"><span class="icon">🎧</span>CS 관리<span class="nav-badge" id="badge-cs">0</span></div>
+  <div class="nav-section">재고/발주</div>
+  <div class="nav-item" data-page="inventory"><span class="icon">📦</span>재고 관리</div>
+  <div class="nav-item" data-page="orders"><span class="icon">🛒</span>발주 관리</div>
   <div class="nav-section">가맹점</div>
   <div class="nav-item" data-page="merchants"><span class="icon">🏪</span>가맹점 관리</div>
-  <div class="nav-item" data-page="installs"><span class="icon">🔧</span>설치/회수 이력</div>
   <div class="nav-section">정산</div>
   <div class="nav-item" data-page="revenue"><span class="icon">💰</span>매출/정산</div>
 </nav>
@@ -172,14 +170,14 @@ tbody tr:hover td{background:#fafaf8;}
     <div class="topbar-actions" id="topbar-actions"></div>
   </div>
   <div class="content" id="content">
-    <!-- Pages rendered by JS -->
+    <div class="loading">⏳ 불러오는 중...</div>
   </div>
 </div>
 </div>
 
 <!-- Modal -->
 <div class="modal-overlay" id="modal-overlay">
-  <div class="modal" id="modal">
+  <div class="modal">
     <div class="modal-header">
       <div class="modal-title" id="modal-title">추가</div>
       <button class="btn btn-sm" onclick="closeModal()">✕</button>
@@ -197,7 +195,7 @@ tbody tr:hover td{background:#fafaf8;}
 
 <script>
 // =============================================
-// SUPABASE 설정
+// SUPABASE
 // =============================================
 const SUPABASE_URL = 'https://maqsveskwhtoqqeysnca.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1hcXN2ZXNrd2h0b3FxZXlzbmNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5NzUyNDAsImV4cCI6MjA5NjU1MTI0MH0.CJAVzPPsWiRhgJS3aaMxdsA3L176jhO2KJnMg9ZOlwQ';
@@ -205,35 +203,27 @@ const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // =============================================
-// STATE
-// =============================================
-let currentPage = 'dashboard';
-let modalSaveHandler = null;
-
-// =============================================
 // NAV
 // =============================================
 const pageConfig = {
   dashboard: { title: '대시보드', addBtn: null },
-  terminals: { title: '단말기 관리', addBtn: { label: '단말기 추가', fn: openAddTerminal } },
-  orders:    { title: '발주 관리',  addBtn: { label: '발주 등록',   fn: openAddOrder } },
-  inventory: { title: '재고 현황',  addBtn: null },
-  merchants: { title: '가맹점 관리',addBtn: { label: '가맹점 추가', fn: openAddMerchant } },
-  installs:  { title: '설치/회수 이력', addBtn: { label: '이력 등록', fn: openAddInstall } },
-  revenue:   { title: '매출/정산', addBtn: { label: '매출 입력', fn: openAddRevenue } },
+  tasks:     { title: '업무 현황', addBtn: { label: '업무 등록', fn: () => openAddTask() } },
+  cs:        { title: 'CS 관리',  addBtn: { label: 'CS 접수',   fn: () => openAddCS() } },
+  inventory: { title: '재고 관리',addBtn: { label: '품목 추가', fn: () => openAddInventory() } },
+  orders:    { title: '발주 관리',addBtn: { label: '발주 등록', fn: () => openAddOrder() } },
+  merchants: { title: '가맹점 관리', addBtn: { label: '가맹점 추가', fn: () => openAddMerchant() } },
+  revenue:   { title: '매출/정산', addBtn: { label: '매출 입력', fn: () => openAddRevenue() } },
 };
 
 document.querySelectorAll('.nav-item').forEach(el => {
   el.addEventListener('click', () => {
-    const page = el.dataset.page;
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     el.classList.add('active');
-    loadPage(page);
+    loadPage(el.dataset.page);
   });
 });
 
 function loadPage(page) {
-  currentPage = page;
   const cfg = pageConfig[page];
   document.getElementById('topbar-title').textContent = cfg.title;
   const actions = document.getElementById('topbar-actions');
@@ -241,242 +231,649 @@ function loadPage(page) {
   if (cfg.addBtn) {
     const btn = document.createElement('button');
     btn.className = 'btn btn-primary';
-    btn.innerHTML = `+ ${cfg.addBtn.label}`;
+    btn.innerHTML = '+ ' + cfg.addBtn.label;
     btn.onclick = cfg.addBtn.fn;
     actions.appendChild(btn);
   }
-  const content = document.getElementById('content');
-  content.innerHTML = `<div class="loading">⏳ 불러오는 중...</div>`;
-  const renderers = { dashboard: renderDashboard, terminals: renderTerminals, orders: renderOrders,
-    inventory: renderInventory, merchants: renderMerchants, installs: renderInstalls, revenue: renderRevenue };
+  document.getElementById('content').innerHTML = '<div class="loading">⏳ 불러오는 중...</div>';
+  const renderers = { dashboard: renderDashboard, tasks: renderTasks, cs: renderCS,
+    inventory: renderInventory, orders: renderOrders, merchants: renderMerchants, revenue: renderRevenue };
   renderers[page]();
 }
 
 // =============================================
-// TOAST
+// TOAST & MODAL
 // =============================================
 function toast(msg, type = 'success') {
   const t = document.getElementById('toast');
   t.textContent = msg;
-  t.className = `toast show ${type}`;
+  t.className = 'toast show ' + type;
   setTimeout(() => t.className = 'toast', 2500);
 }
 
-// =============================================
-// MODAL
-// =============================================
-function openModal(title, bodyHtml, saveFn) {
+function openModal(title, bodyHtml, saveFn, footerHtml) {
   document.getElementById('modal-title').textContent = title;
   document.getElementById('modal-body').innerHTML = bodyHtml;
-  modalSaveHandler = saveFn;
+  document.getElementById('modal-save-btn').onclick = saveFn;
+  if (footerHtml) document.getElementById('modal-footer').innerHTML = footerHtml;
+  else document.getElementById('modal-footer').innerHTML = '<button class="btn" onclick="closeModal()">취소</button><button class="btn btn-primary" id="modal-save-btn">저장</button>';
   document.getElementById('modal-save-btn').onclick = saveFn;
   document.getElementById('modal-overlay').classList.add('open');
 }
-function closeModal() {
-  document.getElementById('modal-overlay').classList.remove('open');
-  modalSaveHandler = null;
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+document.getElementById('modal-overlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+
+// =============================================
+// HELPERS
+// =============================================
+function v(id) { return document.getElementById(id)?.value || ''; }
+function today() { return new Date().toISOString().slice(0, 10); }
+function thisMonth() { return new Date().toISOString().slice(0, 7); }
+function genNo(prefix) { return prefix + '-' + Date.now().toString().slice(-6); }
+function dbError(e) { return '<div class="card"><div style="color:#b91c1c;padding:16px;font-size:13px;">⚠️ 오류: ' + e.message + '</div></div>'; }
+function emptyState(msg) { return '<div class="empty-state"><div class="es-icon">📭</div><div>' + msg + '</div></div>'; }
+
+function taskStatusBadge(status) {
+  const m = { '요청접수':'badge-gray','주문완료':'badge-blue','입고완료':'badge-teal',
+    '수거완료':'badge-blue','수신완료':'badge-blue','본사발송':'badge-amber',
+    '견적수령':'badge-purple','재고확인':'badge-amber','발주중':'badge-amber',
+    '발송완료':'badge-green','설치완료':'badge-green','완료':'badge-green' };
+  return '<span class="badge ' + (m[status]||'badge-gray') + '">' + status + '</span>';
 }
-document.getElementById('modal-overlay').addEventListener('click', e => {
-  if (e.target === e.currentTarget) closeModal();
-});
+function csStatusBadge(s) {
+  const m = { '접수':'badge-gray','처리중':'badge-amber','완료':'badge-green','보류':'badge-red' };
+  return '<span class="badge ' + (m[s]||'badge-gray') + '">' + s + '</span>';
+}
+function priorityBadge(p) {
+  if (p==='긴급') return '<span class="badge badge-red">🔴 긴급</span>';
+  if (p==='보통') return '<span class="badge badge-amber">🟡 보통</span>';
+  return '<span class="badge badge-gray">🔵 낮음</span>';
+}
+function typeBadge(t) {
+  if (t==='VAN') return '<span class="badge badge-blue">VAN</span>';
+  if (t==='PG') return '<span class="badge badge-amber">PG</span>';
+  return '<span class="badge badge-gray">VAN+PG</span>';
+}
+function taskTypeBadge(t) {
+  if (t==='설치') return '<span class="badge badge-blue">설치</span>';
+  if (t==='수리') return '<span class="badge badge-amber">수리</span>';
+  return '<span class="badge badge-teal">소모품</span>';
+}
+function categoryBadge(c) {
+  if (c==='단말기') return '<span class="badge badge-navy">단말기</span>';
+  if (c==='싸인패드') return '<span class="badge badge-purple">싸인패드</span>';
+  return '<span class="badge badge-gray">소모품</span>';
+}
 
 // =============================================
 // DASHBOARD
 // =============================================
 async function renderDashboard() {
-  const content = document.getElementById('content');
   try {
-    const [{ data: terminals }, { data: merchants }, { data: orders }, { data: revenue }, { data: installs }] = await Promise.all([
-      db.from('terminals').select('*'),
-      db.from('merchants').select('*'),
+    const [{ data: tasks }, { data: cs }, { data: inv }, { data: orders }] = await Promise.all([
+      db.from('tasks').select('*'),
+      db.from('cs_tickets').select('*'),
+      db.from('inventory').select('*'),
       db.from('orders').select('*').order('created_at', { ascending: false }).limit(5),
-      db.from('revenue').select('*'),
-      db.from('installs').select('*, merchants(name), terminals(name)').order('install_date', { ascending: false }).limit(5),
     ]);
 
-    const totalStock = (terminals || []).reduce((s, t) => s + (t.stock || 0), 0);
-    const totalMerchants = (merchants || []).length;
-    const thisMonth = new Date().toISOString().slice(0, 7);
-    const monthRevenue = (revenue || []).filter(r => r.month === thisMonth);
-    const vanRevenue = monthRevenue.reduce((s, r) => s + (r.van_revenue || 0), 0);
-    const pgRevenue = monthRevenue.reduce((s, r) => s + (r.pg_revenue || 0), 0);
+    const activeTasks = (tasks||[]).filter(t => t.status !== '완료');
+    const urgentCS = (cs||[]).filter(c => c.status !== '완료' && c.priority === '긴급');
+    const openCS = (cs||[]).filter(c => c.status !== '완료');
+    const lowStock = (inv||[]).filter(i => i.stock <= i.min_stock);
 
-    content.innerHTML = `
-    <div class="metrics">
-      <div class="metric"><div class="metric-label">총 단말기 재고</div><div class="metric-value">${totalStock.toLocaleString()}</div><div class="metric-sub">${(terminals||[]).length}종 단말기</div></div>
-      <div class="metric"><div class="metric-label">등록 가맹점</div><div class="metric-value">${totalMerchants}</div><div class="metric-sub">전체</div></div>
-      <div class="metric"><div class="metric-label">이번 달 VAN 수익</div><div class="metric-value">₩${vanRevenue.toLocaleString()}원</div><div class="metric-sub">${thisMonth}</div></div>
-      <div class="metric"><div class="metric-label">이번 달 PG 수익</div><div class="metric-value">₩${pgRevenue.toLocaleString()}원</div><div class="metric-sub">${thisMonth}</div></div>
-    </div>
-    <div class="grid2">
-      <div class="card">
-        <div class="card-header"><div class="card-title">최근 발주 현황</div></div>
-        ${(orders||[]).length === 0 ? emptyState('발주 내역이 없습니다') : `
-        <table><thead><tr><th>단말기</th><th>수량</th><th>상태</th></tr></thead><tbody>
-        ${(orders||[]).map(o => `<tr><td>${o.terminal_name||'-'}</td><td>${o.quantity}</td><td>${statusBadge(o.status, 'order')}</td></tr>`).join('')}
-        </tbody></table>`}
-      </div>
-      <div class="card">
-        <div class="card-header"><div class="card-title">최근 설치/회수</div></div>
-        ${(installs||[]).length === 0 ? emptyState('이력이 없습니다') : `
-        <table><thead><tr><th>가맹점</th><th>단말기</th><th>구분</th></tr></thead><tbody>
-        ${(installs||[]).map(i => `<tr><td>${i.merchants?.name||'-'}</td><td>${i.terminals?.name||'-'}</td><td>${i.type==='설치'?'<span class="badge badge-green">설치</span>':'<span class="badge badge-red">회수</span>'}</td></tr>`).join('')}
-        </tbody></table>`}
-      </div>
-    </div>`;
-  } catch(e) {
-    content.innerHTML = dbError(e);
-  }
+    // 배지 업데이트
+    document.getElementById('badge-tasks').textContent = activeTasks.length;
+    document.getElementById('badge-cs').textContent = openCS.length;
+
+    // 업무 유형별
+    const install = activeTasks.filter(t=>t.type==='설치').length;
+    const repair = activeTasks.filter(t=>t.type==='수리').length;
+    const supply = activeTasks.filter(t=>t.type==='소모품').length;
+
+    let html = '<div class="metrics">' +
+      '<div class="metric"><div class="metric-label">진행 중 업무</div><div class="metric-value">' + activeTasks.length + '</div><div class="metric-sub">설치 ' + install + ' · 수리 ' + repair + ' · 소모품 ' + supply + '</div></div>' +
+      '<div class="metric ' + (urgentCS.length>0?'alert':'') + '"><div class="metric-label">미처리 CS</div><div class="metric-value">' + openCS.length + '</div><div class="metric-sub">긴급 ' + urgentCS.length + '건</div></div>' +
+      '<div class="metric ' + (lowStock.length>0?'alert':'') + '"><div class="metric-label">재고 부족 품목</div><div class="metric-value">' + lowStock.length + '</div><div class="metric-sub">최소재고 이하</div></div>' +
+      '<div class="metric"><div class="metric-label">이번 달</div><div class="metric-value">' + thisMonth() + '</div><div class="metric-sub">기준</div></div>' +
+      '</div>';
+
+    html += '<div class="grid2">';
+
+    // 진행중 업무 최근 5건
+    html += '<div class="card"><div class="card-header"><div class="card-title">📋 진행 중 업무</div></div>';
+    const recentTasks = activeTasks.slice(0,5);
+    if (recentTasks.length === 0) { html += emptyState('진행 중인 업무가 없습니다'); }
+    else {
+      html += '<table><thead><tr><th>유형</th><th>가맹점</th><th>품목</th><th>상태</th></tr></thead><tbody>';
+      recentTasks.forEach(t => {
+        html += '<tr><td>' + taskTypeBadge(t.type) + '</td><td>' + (t.merchant_name||'-') + '</td><td>' + (t.item_name||'-') + '</td><td>' + taskStatusBadge(t.status) + '</td></tr>';
+      });
+      html += '</tbody></table>';
+    }
+    html += '</div>';
+
+    // 미처리 CS
+    html += '<div class="card"><div class="card-header"><div class="card-title">🎧 미처리 CS</div></div>';
+    const recentCS = openCS.slice(0,5);
+    if (recentCS.length === 0) { html += emptyState('미처리 CS가 없습니다'); }
+    else {
+      html += '<table><thead><tr><th>우선순위</th><th>가맹점</th><th>이슈</th><th>상태</th></tr></thead><tbody>';
+      recentCS.forEach(c => {
+        html += '<tr><td>' + priorityBadge(c.priority) + '</td><td>' + (c.merchant_name||'-') + '</td><td>' + (c.issue_type||'-') + '</td><td>' + csStatusBadge(c.status) + '</td></tr>';
+      });
+      html += '</tbody></table>';
+    }
+    html += '</div></div>';
+
+    // 재고 부족
+    if (lowStock.length > 0) {
+      html += '<div class="card"><div class="card-header"><div class="card-title">⚠️ 재고 부족 품목</div></div>';
+      html += '<table><thead><tr><th>품목</th><th>구분</th><th>현재재고</th><th>최소재고</th></tr></thead><tbody>';
+      lowStock.forEach(i => {
+        html += '<tr><td><strong>' + i.name + '</strong></td><td>' + categoryBadge(i.category) + '</td><td style="color:#b91c1c;font-weight:600;">' + i.stock + i.unit + '</td><td>' + i.min_stock + i.unit + '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+
+    document.getElementById('content').innerHTML = html;
+  } catch(e) { document.getElementById('content').innerHTML = dbError(e); }
 }
 
 // =============================================
-// TERMINALS
+// TASKS
 // =============================================
-async function renderTerminals() {
-  const content = document.getElementById('content');
+let taskFilter = '전체';
+async function renderTasks() {
   try {
-    const { data, error } = await db.from('terminals').select('*').order('name');
+    const { data, error } = await db.from('tasks').select('*').order('created_at', { ascending: false });
     if (error) throw error;
-    content.innerHTML = `<div class="card">
-      <div class="card-header"><div class="card-title">등록된 단말기 종류</div><div style="display:flex;gap:8px;"><button class="btn btn-sm btn-excel" onclick="exportTableExcel('terminal-list','단말기목록')">📊 엑셀 저장</button><button class="btn btn-sm btn-pdf" onclick="exportTablePDF('단말기 관리','terminal-list')">📄 PDF 저장</button></div></div>
-      ${(data||[]).length === 0 ? emptyState('등록된 단말기가 없습니다.<br>오른쪽 상단에서 추가해주세요.') : `
-      <table><thead><tr><th>단말기명</th><th>모델코드</th><th>구분</th><th>단가</th><th>재고</th><th>상태</th><th></th></tr></thead><tbody>
-      ${data.map(t => `<tr>
-        <td><strong>${t.name}</strong></td>
-        <td style="color:#888">${t.model_code||'-'}</td>
-        <td>${typeBadge(t.type)}</td>
-        <td>₩${(t.price||0).toLocaleString()}</td>
-        <td><strong>${t.stock||0}</strong></td>
-        <td>${t.status==='판매중'?'<span class="badge badge-green">판매중</span>':t.status==='단종예정'?'<span class="badge badge-amber">단종예정</span>':'<span class="badge badge-gray">단종</span>'}</td>
-        <td style="display:flex;gap:6px;">
-          <button class="btn btn-sm" onclick="openEditTerminal(${JSON.stringify(t).replace(/"/g,'&quot;')})">편집</button>
-          <button class="btn btn-sm btn-danger" onclick="deleteTerminal(${t.id},'${t.name}')">삭제</button>
-        </td>
-      </tr>`).join('')}
-      </tbody></table>`}
-    </div>`;
-  } catch(e) { content.innerHTML = dbError(e); }
+    window._tasks = data || [];
+
+    const types = ['전체','설치','수리','소모품'];
+    let html = '<div class="type-tabs">' + types.map(t =>
+      '<div class="type-tab ' + (taskFilter===t?'active':'') + '" onclick="setTaskFilter(\'' + t + '\')">' + t + '</div>'
+    ).join('') + '</div>';
+
+    const filtered = taskFilter === '전체' ? window._tasks : window._tasks.filter(t => t.type === taskFilter);
+    const active = filtered.filter(t => t.status !== '완료');
+    const done = filtered.filter(t => t.status === '완료');
+
+    html += '<div class="card"><div class="card-header"><div class="card-title">진행 중 (' + active.length + '건)</div></div>';
+    if (active.length === 0) { html += emptyState('진행 중인 업무가 없습니다'); }
+    else {
+      html += '<table><thead><tr><th>유형</th><th>가맹점</th><th>품목</th><th>업체</th><th>방법</th><th>상태</th><th>담당자</th><th>요청일</th><th></th></tr></thead><tbody>';
+      active.forEach(t => {
+        html += '<tr>' +
+          '<td>' + taskTypeBadge(t.type) + '</td>' +
+          '<td><strong>' + (t.merchant_name||'-') + '</strong></td>' +
+          '<td>' + (t.item_name||'-') + '</td>' +
+          '<td>' + (t.vendor ? '<span class="badge badge-navy">' + t.vendor + '</span>' : '-') + '</td>' +
+          '<td style="color:#888">' + (t.method||'-') + '</td>' +
+          '<td>' + taskStatusBadge(t.status) + '</td>' +
+          '<td>' + (t.manager||'-') + '</td>' +
+          '<td style="color:#888;font-size:12px">' + (t.request_date||'-') + '</td>' +
+          '<td style="display:flex;gap:4px;">' +
+            '<button class="btn btn-sm" onclick="openEditTask(' + t.id + ')">편집</button>' +
+            '<button class="btn btn-sm btn-success" onclick="completeTask(' + t.id + ')">완료</button>' +
+            '<button class="btn btn-sm btn-danger" onclick="deleteTask(' + t.id + ')">삭제</button>' +
+          '</td></tr>';
+      });
+      html += '</tbody></table>';
+    }
+    html += '</div>';
+
+    if (done.length > 0) {
+      html += '<div class="card"><div class="card-header"><div class="card-title">완료 (' + done.length + '건)</div></div>';
+      html += '<table><thead><tr><th>유형</th><th>가맹점</th><th>품목</th><th>완료일</th><th></th></tr></thead><tbody>';
+      done.slice(0,10).forEach(t => {
+        html += '<tr>' +
+          '<td>' + taskTypeBadge(t.type) + '</td>' +
+          '<td>' + (t.merchant_name||'-') + '</td>' +
+          '<td>' + (t.item_name||'-') + '</td>' +
+          '<td style="color:#888;font-size:12px">' + (t.completed_date||'-') + '</td>' +
+          '<td><button class="btn btn-sm btn-danger" onclick="deleteTask(' + t.id + ')">삭제</button></td>' +
+          '</tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+
+    document.getElementById('content').innerHTML = html;
+  } catch(e) { document.getElementById('content').innerHTML = dbError(e); }
 }
 
-function openAddTerminal() {
-  openModal('단말기 추가', terminalForm(), async () => {
-    const name = v('t-name'); const model = v('t-model'); const type = v('t-type');
-    const price = parseInt(v('t-price'))||0; const stock = parseInt(v('t-stock'))||0; const status = v('t-status');
-    if (!name) return toast('단말기명을 입력해주세요.', 'error');
-    const { error } = await db.from('terminals').insert({ name, model_code: model, type, price, stock, status });
+function setTaskFilter(f) { taskFilter = f; renderTasks(); }
+
+function getTaskStatuses(type) {
+  if (type==='설치') return ['요청접수','주문완료','입고완료','발송완료','설치완료','완료'];
+  if (type==='수리') return ['요청접수','수거완료','수신완료','본사발송','견적수령','완료'];
+  return ['요청접수','재고확인','발주중','발송완료','완료'];
+}
+
+function taskForm(t = {}) {
+  const type = t.type || '설치';
+  const statuses = getTaskStatuses(type);
+  return '<div class="form-row">' +
+    '<div class="form-group"><label class="form-label">업무 유형 *</label><select id="tk-type" class="form-select" onchange="updateTaskStatuses()">' +
+    ['설치','수리','소모품'].map(s => '<option ' + (t.type===s?'selected':'') + '>' + s + '</option>').join('') +
+    '</select></div>' +
+    '<div class="form-group"><label class="form-label">가맹점명 *</label><input id="tk-merchant" class="form-input" value="' + (t.merchant_name||'') + '" placeholder="가맹점 이름"/></div>' +
+    '</div><div class="form-row">' +
+    '<div class="form-group"><label class="form-label">품목명</label><input id="tk-item" class="form-input" value="' + (t.item_name||'') + '" placeholder="단말기명, 소모품명 등"/></div>' +
+    '<div class="form-group"><label class="form-label">업체</label><select id="tk-vendor" class="form-select"><option value="">선택</option>' +
+    ['토스','KIS','기타'].map(s => '<option ' + (t.vendor===s?'selected':'') + '>' + s + '</option>').join('') +
+    '</select></div>' +
+    '</div><div class="form-row">' +
+    '<div class="form-group"><label class="form-label">처리 방법</label><select id="tk-method" class="form-select"><option value="">선택</option>' +
+    ['택배발송','직접설치','방문수거','택배수신'].map(s => '<option ' + (t.method===s?'selected':'') + '>' + s + '</option>').join('') +
+    '</select></div>' +
+    '<div class="form-group"><label class="form-label">상태</label><select id="tk-status" class="form-select">' +
+    statuses.map(s => '<option ' + (t.status===s?'selected':'') + '>' + s + '</option>').join('') +
+    '</select></div>' +
+    '</div><div class="form-row">' +
+    '<div class="form-group"><label class="form-label">담당자</label><input id="tk-manager" class="form-input" value="' + (t.manager||'') + '" placeholder="담당자 이름"/></div>' +
+    '<div class="form-group"><label class="form-label">운송장 번호</label><input id="tk-tracking" class="form-input" value="' + (t.tracking_no||'') + '" placeholder="운송장 번호"/></div>' +
+    '</div><div class="form-row">' +
+    '<div class="form-group"><label class="form-label">요청일</label><input id="tk-req" class="form-input" type="date" value="' + (t.request_date||today()) + '"/></div>' +
+    '<div class="form-group"><label class="form-label">처리 예정일</label><input id="tk-due" class="form-input" type="date" value="' + (t.due_date||'') + '"/></div>' +
+    '</div><div class="form-group"><label class="form-label">메모</label><textarea id="tk-note" class="form-textarea">' + (t.note||'') + '</textarea></div>';
+}
+
+function updateTaskStatuses() {
+  const type = v('tk-type');
+  const statuses = getTaskStatuses(type);
+  const sel = document.getElementById('tk-status');
+  if (sel) sel.innerHTML = statuses.map(s => '<option>' + s + '</option>').join('');
+}
+
+function openAddTask() {
+  openModal('업무 등록', taskForm(), async () => {
+    const merchant_name = v('tk-merchant');
+    if (!merchant_name) return toast('가맹점명을 입력해주세요.', 'error');
+    const { error } = await db.from('tasks').insert({
+      task_no: genNo('TASK'), type: v('tk-type'), merchant_name,
+      item_name: v('tk-item'), vendor: v('tk-vendor'), method: v('tk-method'),
+      status: v('tk-status'), manager: v('tk-manager'), tracking_no: v('tk-tracking'),
+      request_date: v('tk-req'), due_date: v('tk-due'), note: v('tk-note')
+    });
     if (error) return toast('저장 실패: ' + error.message, 'error');
-    toast('단말기가 추가되었습니다.'); closeModal(); renderTerminals();
+    toast('업무가 등록되었습니다.'); closeModal(); renderTasks();
   });
 }
 
-function openEditTerminal(t) {
-  openModal('단말기 편집', terminalForm(t), async () => {
-    const name = v('t-name'); const model = v('t-model'); const type = v('t-type');
-    const price = parseInt(v('t-price'))||0; const stock = parseInt(v('t-stock'))||0; const status = v('t-status');
-    if (!name) return toast('단말기명을 입력해주세요.', 'error');
-    const { error } = await db.from('terminals').update({ name, model_code: model, type, price, stock, status }).eq('id', t.id);
+function openEditTask(id) {
+  const t = (window._tasks||[]).find(x => x.id === id);
+  if (!t) return;
+  openModal('업무 편집', taskForm(t), async () => {
+    const { error } = await db.from('tasks').update({
+      type: v('tk-type'), merchant_name: v('tk-merchant'),
+      item_name: v('tk-item'), vendor: v('tk-vendor'), method: v('tk-method'),
+      status: v('tk-status'), manager: v('tk-manager'), tracking_no: v('tk-tracking'),
+      request_date: v('tk-req'), due_date: v('tk-due'), note: v('tk-note')
+    }).eq('id', id);
     if (error) return toast('저장 실패: ' + error.message, 'error');
-    toast('수정되었습니다.'); closeModal(); renderTerminals();
+    toast('수정되었습니다.'); closeModal(); renderTasks();
   });
 }
 
-async function deleteTerminal(id, name) {
-  if (!confirm(`"${name}" 단말기를 삭제할까요?`)) return;
-  const { error } = await db.from('terminals').delete().eq('id', id);
-  if (error) return toast('삭제 실패: ' + error.message, 'error');
-  toast('삭제되었습니다.'); renderTerminals();
+async function completeTask(id) {
+  const { error } = await db.from('tasks').update({ status: '완료', completed_date: today() }).eq('id', id);
+  if (error) return toast('오류: ' + error.message, 'error');
+  toast('완료 처리되었습니다.'); renderTasks();
 }
 
-function terminalForm(t = {}) {
-  return `
-  <div class="form-row"><div class="form-group"><label class="form-label">단말기명 *</label><input id="t-name" class="form-input" value="${t.name||''}" placeholder="예: IC카드 단말기 A형"/></div>
-  <div class="form-group"><label class="form-label">모델코드</label><input id="t-model" class="form-input" value="${t.model_code||''}" placeholder="예: IC-A100"/></div></div>
-  <div class="form-row3">
-    <div class="form-group"><label class="form-label">구분</label><select id="t-type" class="form-select"><option ${t.type==='VAN'?'selected':''}>VAN</option><option ${t.type==='PG'?'selected':''}>PG</option><option ${t.type==='VAN+PG'?'selected':''}>VAN+PG</option></select></div>
-    <div class="form-group"><label class="form-label">단가 (원)</label><input id="t-price" class="form-input" type="number" value="${t.price||''}" placeholder="0"/></div>
-    <div class="form-group"><label class="form-label">재고</label><input id="t-stock" class="form-input" type="number" value="${t.stock||0}" placeholder="0"/></div>
-  </div>
-  <div class="form-group"><label class="form-label">상태</label><select id="t-status" class="form-select"><option ${t.status==='판매중'?'selected':''}>판매중</option><option ${t.status==='단종예정'?'selected':''}>단종예정</option><option ${t.status==='단종'?'selected':''}>단종</option></select></div>`;
+async function deleteTask(id) {
+  if (!confirm('이 업무를 삭제할까요?')) return;
+  const { error } = await db.from('tasks').delete().eq('id', id);
+  if (error) return toast('삭제 실패', 'error');
+  toast('삭제되었습니다.'); renderTasks();
+}
+
+// =============================================
+// CS
+// =============================================
+let csFilter = '전체';
+async function renderCS() {
+  try {
+    const { data, error } = await db.from('cs_tickets').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    window._cs = data || [];
+
+    const statuses = ['전체','접수','처리중','완료','보류'];
+    let html = '<div class="status-bar">' + statuses.map(s =>
+      '<div class="status-chip ' + (csFilter===s?'active':'') + '" onclick="setCSFilter(\'' + s + '\')">' + s +
+      (s!=='전체' ? ' (' + window._cs.filter(c=>c.status===s).length + ')' : ' (' + window._cs.length + ')') + '</div>'
+    ).join('') + '</div>';
+
+    const filtered = csFilter === '전체' ? window._cs : window._cs.filter(c => c.status === csFilter);
+
+    html += '<div class="card"><div class="card-header"><div class="card-title">CS 목록 (' + filtered.length + '건)</div>' +
+      '<button class="btn btn-sm btn-excel" onclick="exportCSExcel()">📊 엑셀 저장</button></div>';
+
+    if (filtered.length === 0) { html += emptyState('해당하는 CS가 없습니다'); }
+    else {
+      html += '<table><thead><tr><th>우선순위</th><th>가맹점</th><th>채널</th><th>이슈유형</th><th>내용</th><th>담당자</th><th>처리기한</th><th>상태</th><th></th></tr></thead><tbody>';
+      filtered.forEach(c => {
+        html += '<tr>' +
+          '<td>' + priorityBadge(c.priority) + '</td>' +
+          '<td><strong>' + (c.merchant_name||'-') + '</strong></td>' +
+          '<td><span class="badge badge-gray">' + (c.channel||'-') + '</span></td>' +
+          '<td>' + (c.issue_type||'-') + '</td>' +
+          '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#555">' + (c.issue_desc||'-') + '</td>' +
+          '<td>' + (c.manager||'-') + '</td>' +
+          '<td style="font-size:12px;color:' + (c.due_date && c.due_date < today() && c.status!=='완료' ? '#b91c1c' : '#888') + '">' + (c.due_date||'-') + '</td>' +
+          '<td>' + csStatusBadge(c.status) + '</td>' +
+          '<td style="display:flex;gap:4px;">' +
+            '<button class="btn btn-sm" onclick="openEditCS(' + c.id + ')">편집</button>' +
+            (c.status!=='완료' ? '<button class="btn btn-sm btn-success" onclick="completeCS(' + c.id + ')">완료</button>' : '') +
+            '<button class="btn btn-sm btn-danger" onclick="deleteCS(' + c.id + ')">삭제</button>' +
+          '</td></tr>';
+      });
+      html += '</tbody></table>';
+    }
+    html += '</div>';
+    document.getElementById('content').innerHTML = html;
+  } catch(e) { document.getElementById('content').innerHTML = dbError(e); }
+}
+
+function setCSFilter(f) { csFilter = f; renderCS(); }
+
+function csForm(c = {}) {
+  return '<div class="form-row">' +
+    '<div class="form-group"><label class="form-label">가맹점명 *</label><input id="cs-merchant" class="form-input" value="' + (c.merchant_name||'') + '" placeholder="가맹점 이름"/></div>' +
+    '<div class="form-group"><label class="form-label">연락처</label><input id="cs-contact" class="form-input" value="' + (c.contact||'') + '" placeholder="010-0000-0000"/></div>' +
+    '</div><div class="form-row">' +
+    '<div class="form-group"><label class="form-label">접수 채널</label><select id="cs-channel" class="form-select">' +
+    ['전화','문자','카카오','이메일','방문'].map(s => '<option ' + (c.channel===s?'selected':'') + '>' + s + '</option>').join('') +
+    '</select></div>' +
+    '<div class="form-group"><label class="form-label">이슈 유형</label><select id="cs-issue-type" class="form-select">' +
+    ['단말기오류','결제오류','교체요청','소모품요청','설치문의','기타'].map(s => '<option ' + (c.issue_type===s?'selected':'') + '>' + s + '</option>').join('') +
+    '</select></div>' +
+    '</div>' +
+    '<div class="form-group"><label class="form-label">이슈 내용 *</label><textarea id="cs-desc" class="form-textarea">' + (c.issue_desc||'') + '</textarea></div>' +
+    '<div class="form-row">' +
+    '<div class="form-group"><label class="form-label">우선순위</label><select id="cs-priority" class="form-select">' +
+    ['긴급','보통','낮음'].map(s => '<option ' + (c.priority===s?'selected':'') + '>' + s + '</option>').join('') +
+    '</select></div>' +
+    '<div class="form-group"><label class="form-label">상태</label><select id="cs-status" class="form-select">' +
+    ['접수','처리중','완료','보류'].map(s => '<option ' + (c.status===s?'selected':'') + '>' + s + '</option>').join('') +
+    '</select></div>' +
+    '</div><div class="form-row">' +
+    '<div class="form-group"><label class="form-label">담당자</label><input id="cs-manager" class="form-input" value="' + (c.manager||'') + '" placeholder="담당자 이름"/></div>' +
+    '<div class="form-group"><label class="form-label">처리 기한</label><input id="cs-due" class="form-input" type="date" value="' + (c.due_date||'') + '"/></div>' +
+    '</div>' +
+    '<div class="form-group"><label class="form-label">처리 내용</label><textarea id="cs-resolve" class="form-textarea">' + (c.resolve_desc||'') + '</textarea></div>';
+}
+
+function openAddCS() {
+  openModal('CS 접수', csForm(), async () => {
+    const merchant_name = v('cs-merchant');
+    const issue_desc = v('cs-desc');
+    if (!merchant_name || !issue_desc) return toast('가맹점명과 이슈 내용을 입력해주세요.', 'error');
+    const { error } = await db.from('cs_tickets').insert({
+      ticket_no: genNo('CS'), merchant_name, contact: v('cs-contact'),
+      channel: v('cs-channel'), issue_type: v('cs-issue-type'), issue_desc,
+      priority: v('cs-priority'), status: v('cs-status'),
+      manager: v('cs-manager'), due_date: v('cs-due'), resolve_desc: v('cs-resolve')
+    });
+    if (error) return toast('저장 실패: ' + error.message, 'error');
+    toast('CS가 접수되었습니다.'); closeModal(); renderCS();
+  });
+}
+
+function openEditCS(id) {
+  const c = (window._cs||[]).find(x => x.id === id);
+  if (!c) return;
+  openModal('CS 편집', csForm(c), async () => {
+    const { error } = await db.from('cs_tickets').update({
+      merchant_name: v('cs-merchant'), contact: v('cs-contact'),
+      channel: v('cs-channel'), issue_type: v('cs-issue-type'), issue_desc: v('cs-desc'),
+      priority: v('cs-priority'), status: v('cs-status'),
+      manager: v('cs-manager'), due_date: v('cs-due'), resolve_desc: v('cs-resolve')
+    }).eq('id', id);
+    if (error) return toast('저장 실패: ' + error.message, 'error');
+    toast('수정되었습니다.'); closeModal(); renderCS();
+  });
+}
+
+async function completeCS(id) {
+  const { error } = await db.from('cs_tickets').update({ status: '완료', resolved_date: today() }).eq('id', id);
+  if (error) return toast('오류', 'error');
+  toast('완료 처리되었습니다.'); renderCS();
+}
+
+async function deleteCS(id) {
+  if (!confirm('이 CS를 삭제할까요?')) return;
+  const { error } = await db.from('cs_tickets').delete().eq('id', id);
+  if (error) return toast('삭제 실패', 'error');
+  toast('삭제되었습니다.'); renderCS();
+}
+
+function exportCSExcel() {
+  const data = (window._cs||[]).map(c => ({
+    티켓번호: c.ticket_no, 가맹점: c.merchant_name, 연락처: c.contact,
+    채널: c.channel, 이슈유형: c.issue_type, 이슈내용: c.issue_desc,
+    우선순위: c.priority, 상태: c.status, 담당자: c.manager,
+    처리기한: c.due_date, 처리내용: c.resolve_desc
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'CS내역');
+  XLSX.writeFile(wb, 'CS내역_' + today() + '.xlsx');
+  toast('엑셀 저장 완료');
+}
+
+// =============================================
+// INVENTORY
+// =============================================
+async function renderInventory() {
+  try {
+    const { data, error } = await db.from('inventory').select('*').order('category').order('name');
+    if (error) throw error;
+    window._inventory = data || [];
+
+    const categories = ['전체','단말기','싸인패드','소모품'];
+    let activeTab = window._invTab || '전체';
+    let html = '<div class="type-tabs">' + categories.map(c =>
+      '<div class="type-tab ' + (activeTab===c?'active':'') + '" onclick="setInvTab(\'' + c + '\')">' + c + '</div>'
+    ).join('') + '</div>';
+
+    const filtered = activeTab === '전체' ? window._inventory : window._inventory.filter(i => i.category === activeTab);
+    const lowStock = filtered.filter(i => i.stock <= i.min_stock);
+
+    html += '<div class="card"><div class="card-header"><div class="card-title">재고 목록</div>' +
+      (lowStock.length > 0 ? '<span class="badge badge-red">⚠️ 부족 ' + lowStock.length + '건</span>' : '') +
+      '</div>';
+
+    if (filtered.length === 0) { html += emptyState('등록된 품목이 없습니다.'); }
+    else {
+      html += '<table><thead><tr><th>품목명</th><th>구분</th><th>모델코드</th><th>업체</th><th>현재 재고</th><th>최소 재고</th><th>단위</th><th></th></tr></thead><tbody>';
+      filtered.forEach(i => {
+        const isLow = i.stock <= i.min_stock;
+        html += '<tr>' +
+          '<td><strong>' + i.name + '</strong></td>' +
+          '<td>' + categoryBadge(i.category) + '</td>' +
+          '<td style="color:#888">' + (i.model_code||'-') + '</td>' +
+          '<td>' + (i.vendor ? '<span class="badge badge-navy">' + i.vendor + '</span>' : '-') + '</td>' +
+          '<td><strong style="color:' + (isLow?'#b91c1c':'#0a6644') + '">' + i.stock + '</strong>' +
+            '<div class="stock-bar"><div class="stock-fill" style="width:' + Math.min(100, i.min_stock>0?Math.round(i.stock/i.min_stock*50):50) + '%;background:' + (isLow?'#e74c3c':'#0a6644') + '"></div></div></td>' +
+          '<td>' + i.min_stock + '</td>' +
+          '<td>' + (i.unit||'개') + '</td>' +
+          '<td style="display:flex;gap:4px;">' +
+            '<button class="btn btn-sm" onclick="openEditInventory(' + i.id + ')">편집</button>' +
+            '<button class="btn btn-sm btn-danger" onclick="deleteInventory(' + i.id + ')">삭제</button>' +
+          '</td></tr>';
+      });
+      html += '</tbody></table>';
+    }
+    html += '</div>';
+    document.getElementById('content').innerHTML = html;
+  } catch(e) { document.getElementById('content').innerHTML = dbError(e); }
+}
+
+function setInvTab(t) { window._invTab = t; renderInventory(); }
+
+function inventoryForm(i = {}) {
+  return '<div class="form-row">' +
+    '<div class="form-group"><label class="form-label">품목명 *</label><input id="inv-name" class="form-input" value="' + (i.name||'') + '" placeholder="품목명"/></div>' +
+    '<div class="form-group"><label class="form-label">구분 *</label><select id="inv-cat" class="form-select">' +
+    ['단말기','싸인패드','소모품'].map(s => '<option ' + (i.category===s?'selected':'') + '>' + s + '</option>').join('') +
+    '</select></div>' +
+    '</div><div class="form-row">' +
+    '<div class="form-group"><label class="form-label">모델코드</label><input id="inv-model" class="form-input" value="' + (i.model_code||'') + '" placeholder="모델코드"/></div>' +
+    '<div class="form-group"><label class="form-label">업체</label><select id="inv-vendor" class="form-select"><option value="">선택</option>' +
+    ['토스','KIS','기타'].map(s => '<option ' + (i.vendor===s?'selected':'') + '>' + s + '</option>').join('') +
+    '</select></div>' +
+    '</div><div class="form-row3">' +
+    '<div class="form-group"><label class="form-label">현재 재고</label><input id="inv-stock" class="form-input" type="number" value="' + (i.stock||0) + '"/></div>' +
+    '<div class="form-group"><label class="form-label">최소 재고</label><input id="inv-min" class="form-input" type="number" value="' + (i.min_stock||0) + '"/></div>' +
+    '<div class="form-group"><label class="form-label">단위</label><input id="inv-unit" class="form-input" value="' + (i.unit||'개') + '"/></div>' +
+    '</div><div class="form-group"><label class="form-label">메모</label><input id="inv-note" class="form-input" value="' + (i.note||'') + '"/></div>';
+}
+
+function openAddInventory() {
+  openModal('품목 추가', inventoryForm(), async () => {
+    const name = v('inv-name');
+    if (!name) return toast('품목명을 입력해주세요.', 'error');
+    const { error } = await db.from('inventory').insert({
+      name, category: v('inv-cat'), model_code: v('inv-model'), vendor: v('inv-vendor'),
+      stock: parseInt(v('inv-stock'))||0, min_stock: parseInt(v('inv-min'))||0,
+      unit: v('inv-unit')||'개', note: v('inv-note')
+    });
+    if (error) return toast('저장 실패: ' + error.message, 'error');
+    toast('품목이 추가되었습니다.'); closeModal(); renderInventory();
+  });
+}
+
+function openEditInventory(id) {
+  const i = (window._inventory||[]).find(x => x.id === id);
+  if (!i) return;
+  openModal('재고 편집', inventoryForm(i), async () => {
+    const { error } = await db.from('inventory').update({
+      name: v('inv-name'), category: v('inv-cat'), model_code: v('inv-model'), vendor: v('inv-vendor'),
+      stock: parseInt(v('inv-stock'))||0, min_stock: parseInt(v('inv-min'))||0,
+      unit: v('inv-unit')||'개', note: v('inv-note')
+    }).eq('id', id);
+    if (error) return toast('저장 실패: ' + error.message, 'error');
+    toast('수정되었습니다.'); closeModal(); renderInventory();
+  });
+}
+
+async function deleteInventory(id) {
+  if (!confirm('이 품목을 삭제할까요?')) return;
+  const { error } = await db.from('inventory').delete().eq('id', id);
+  if (error) return toast('삭제 실패', 'error');
+  toast('삭제되었습니다.'); renderInventory();
 }
 
 // =============================================
 // ORDERS
 // =============================================
 async function renderOrders() {
-  const content = document.getElementById('content');
   try {
     const { data, error } = await db.from('orders').select('*').order('created_at', { ascending: false });
     if (error) throw error;
-    content.innerHTML = `
-    <div class="flow-steps" style="margin-bottom:20px;">
-      <div class="flow-step done">발주요청</div>
-      <div class="flow-step done">발주확인</div>
-      <div class="flow-step active">배송중</div>
-      <div class="flow-step">입고완료</div>
-      <div class="flow-step">설치완료</div>
-    </div>
-    <div class="card">
-      <div class="card-header"><div class="card-title">발주 목록</div></div>
-      ${(data||[]).length===0 ? emptyState('발주 내역이 없습니다.') : `
-      <table><thead><tr><th>발주번호</th><th>단말기</th><th>수량</th><th>발주일</th><th>상태</th><th>비고</th><th></th></tr></thead><tbody>
-      ${data.map(o => `<tr>
-        <td style="color:#888;font-size:12px">${o.order_no||'-'}</td>
-        <td>${o.terminal_name||'-'}</td>
-        <td>${o.quantity}</td>
-        <td>${o.order_date||'-'}</td>
-        <td>${statusBadge(o.status,'order')}</td>
-        <td style="color:#888">${o.note||'-'}</td>
-        <td style="display:flex;gap:6px;">
-          <button class="btn btn-sm" onclick="openEditOrder(${JSON.stringify(o).replace(/"/g,'&quot;')})">편집</button>
-          <button class="btn btn-sm btn-danger" onclick="deleteOrder(${o.id})">삭제</button>
-        </td>
-      </tr>`).join('')}
-      </tbody></table>`}
-    </div>`;
-  } catch(e) { content.innerHTML = dbError(e); }
+    window._orders = data || [];
+
+    const active = window._orders.filter(o => o.status !== '입고완료');
+    const done = window._orders.filter(o => o.status === '입고완료');
+
+    let html = '<div class="card"><div class="card-header"><div class="card-title">진행 중 발주 (' + active.length + '건)</div></div>';
+    if (active.length === 0) { html += emptyState('진행 중인 발주가 없습니다'); }
+    else {
+      html += '<table><thead><tr><th>업체</th><th>품목</th><th>구분</th><th>수량</th><th>발주일</th><th>입고예정</th><th>상태</th><th></th></tr></thead><tbody>';
+      active.forEach(o => {
+        html += '<tr>' +
+          '<td><span class="badge badge-navy">' + o.vendor + '</span></td>' +
+          '<td><strong>' + o.item_name + '</strong></td>' +
+          '<td>' + (o.category ? categoryBadge(o.category) : '-') + '</td>' +
+          '<td>' + o.quantity + '</td>' +
+          '<td style="color:#888;font-size:12px">' + (o.order_date||'-') + '</td>' +
+          '<td style="color:#888;font-size:12px">' + (o.expected_date||'-') + '</td>' +
+          '<td>' + (o.status==='입고완료'?'<span class="badge badge-green">입고완료</span>':o.status==='배송중'?'<span class="badge badge-amber">배송중</span>':'<span class="badge badge-blue">주문완료</span>') + '</td>' +
+          '<td style="display:flex;gap:4px;">' +
+            '<button class="btn btn-sm" onclick="openEditOrder(' + o.id + ')">편집</button>' +
+            '<button class="btn btn-sm btn-success" onclick="arriveOrder(' + o.id + ')">입고</button>' +
+            '<button class="btn btn-sm btn-danger" onclick="deleteOrder(' + o.id + ')">삭제</button>' +
+          '</td></tr>';
+      });
+      html += '</tbody></table>';
+    }
+    html += '</div>';
+
+    if (done.length > 0) {
+      html += '<div class="card"><div class="card-header"><div class="card-title">입고 완료 (' + done.length + '건)</div></div>';
+      html += '<table><thead><tr><th>업체</th><th>품목</th><th>수량</th><th>입고일</th><th></th></tr></thead><tbody>';
+      done.slice(0,10).forEach(o => {
+        html += '<tr>' +
+          '<td><span class="badge badge-navy">' + o.vendor + '</span></td>' +
+          '<td>' + o.item_name + '</td>' +
+          '<td>' + o.quantity + '</td>' +
+          '<td style="color:#888;font-size:12px">' + (o.arrived_date||'-') + '</td>' +
+          '<td><button class="btn btn-sm btn-danger" onclick="deleteOrder(' + o.id + ')">삭제</button></td>' +
+          '</tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+
+    document.getElementById('content').innerHTML = html;
+  } catch(e) { document.getElementById('content').innerHTML = dbError(e); }
+}
+
+function orderForm(o = {}) {
+  return '<div class="form-row">' +
+    '<div class="form-group"><label class="form-label">업체 *</label><select id="or-vendor" class="form-select">' +
+    ['토스','KIS','기타'].map(s => '<option ' + (o.vendor===s?'selected':'') + '>' + s + '</option>').join('') +
+    '</select></div>' +
+    '<div class="form-group"><label class="form-label">구분</label><select id="or-cat" class="form-select"><option value="">선택</option>' +
+    ['단말기','싸인패드','소모품'].map(s => '<option ' + (o.category===s?'selected':'') + '>' + s + '</option>').join('') +
+    '</select></div>' +
+    '</div><div class="form-row">' +
+    '<div class="form-group"><label class="form-label">품목명 *</label><input id="or-item" class="form-input" value="' + (o.item_name||'') + '" placeholder="품목명"/></div>' +
+    '<div class="form-group"><label class="form-label">수량</label><input id="or-qty" class="form-input" type="number" value="' + (o.quantity||1) + '"/></div>' +
+    '</div><div class="form-row">' +
+    '<div class="form-group"><label class="form-label">발주일</label><input id="or-date" class="form-input" type="date" value="' + (o.order_date||today()) + '"/></div>' +
+    '<div class="form-group"><label class="form-label">입고 예정일</label><input id="or-exp" class="form-input" type="date" value="' + (o.expected_date||'') + '"/></div>' +
+    '</div><div class="form-row">' +
+    '<div class="form-group"><label class="form-label">상태</label><select id="or-status" class="form-select">' +
+    ['주문완료','배송중','입고완료'].map(s => '<option ' + (o.status===s?'selected':'') + '>' + s + '</option>').join('') +
+    '</select></div>' +
+    '<div class="form-group"><label class="form-label">메모</label><input id="or-note" class="form-input" value="' + (o.note||'') + '"/></div>' +
+    '</div>';
 }
 
 function openAddOrder() {
-  db.from('terminals').select('name').then(({ data }) => {
-    const opts = (data||[]).map(t => `<option>${t.name}</option>`).join('');
-    openModal('발주 등록', `
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">단말기 *</label><select id="o-terminal" class="form-select">${opts}</select></div>
-      <div class="form-group"><label class="form-label">수량 *</label><input id="o-qty" class="form-input" type="number" placeholder="0"/></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">발주일</label><input id="o-date" class="form-input" type="date" value="${today()}"/></div>
-      <div class="form-group"><label class="form-label">상태</label><select id="o-status" class="form-select"><option>발주요청</option><option>발주확인</option><option>배송중</option><option>입고완료</option></select></div>
-    </div>
-    <div class="form-group"><label class="form-label">비고</label><input id="o-note" class="form-input" placeholder="메모"/></div>`, async () => {
-      const terminal_name = v('o-terminal'); const quantity = parseInt(v('o-qty'))||0;
-      const order_date = v('o-date'); const status = v('o-status'); const note = v('o-note');
-      if (!terminal_name || !quantity) return toast('단말기와 수량을 입력해주세요.', 'error');
-      const order_no = 'ORD-' + new Date().toISOString().slice(2,7).replace('-','') + '-' + String(Math.floor(Math.random()*999)+1).padStart(3,'0');
-      const { error } = await db.from('orders').insert({ order_no, terminal_name, quantity, order_date, status, note });
-      if (error) return toast('저장 실패: ' + error.message, 'error');
-      toast('발주가 등록되었습니다.'); closeModal(); renderOrders();
+  openModal('발주 등록', orderForm(), async () => {
+    const item_name = v('or-item');
+    if (!item_name) return toast('품목명을 입력해주세요.', 'error');
+    const { error } = await db.from('orders').insert({
+      order_no: genNo('ORD'), vendor: v('or-vendor'), category: v('or-cat'),
+      item_name, quantity: parseInt(v('or-qty'))||1,
+      order_date: v('or-date'), expected_date: v('or-exp'), status: v('or-status'), note: v('or-note')
     });
+    if (error) return toast('저장 실패: ' + error.message, 'error');
+    toast('발주가 등록되었습니다.'); closeModal(); renderOrders();
   });
 }
 
-function openEditOrder(o) {
-  openModal('발주 수정', `
-  <div class="form-row">
-    <div class="form-group"><label class="form-label">단말기</label><input id="o-terminal" class="form-input" value="${o.terminal_name||''}"/></div>
-    <div class="form-group"><label class="form-label">수량</label><input id="o-qty" class="form-input" type="number" value="${o.quantity||0}"/></div>
-  </div>
-  <div class="form-row">
-    <div class="form-group"><label class="form-label">발주일</label><input id="o-date" class="form-input" type="date" value="${o.order_date||today()}"/></div>
-    <div class="form-group"><label class="form-label">상태</label><select id="o-status" class="form-select">
-      ${['발주요청','발주확인','배송중','입고완료'].map(s=>`<option ${o.status===s?'selected':''}>${s}</option>`).join('')}
-    </select></div>
-  </div>
-  <div class="form-group"><label class="form-label">비고</label><input id="o-note" class="form-input" value="${o.note||''}"/></div>`, async () => {
-    const { error } = await db.from('orders').update({ terminal_name: v('o-terminal'), quantity: parseInt(v('o-qty'))||0, order_date: v('o-date'), status: v('o-status'), note: v('o-note') }).eq('id', o.id);
+function openEditOrder(id) {
+  const o = (window._orders||[]).find(x => x.id === id);
+  if (!o) return;
+  openModal('발주 편집', orderForm(o), async () => {
+    const { error } = await db.from('orders').update({
+      vendor: v('or-vendor'), category: v('or-cat'), item_name: v('or-item'),
+      quantity: parseInt(v('or-qty'))||1, order_date: v('or-date'),
+      expected_date: v('or-exp'), status: v('or-status'), note: v('or-note')
+    }).eq('id', id);
     if (error) return toast('저장 실패: ' + error.message, 'error');
     toast('수정되었습니다.'); closeModal(); renderOrders();
   });
+}
+
+async function arriveOrder(id) {
+  const { error } = await db.from('orders').update({ status: '입고완료', arrived_date: today() }).eq('id', id);
+  if (error) return toast('오류', 'error');
+  toast('입고 처리되었습니다.'); renderOrders();
 }
 
 async function deleteOrder(id) {
@@ -487,124 +884,59 @@ async function deleteOrder(id) {
 }
 
 // =============================================
-// INVENTORY
-// =============================================
-async function renderInventory() {
-  const content = document.getElementById('content');
-  try {
-    const [{ data: terminals }, { data: installs }, { data: orders }] = await Promise.all([
-      db.from('terminals').select('*').order('name'),
-      db.from('installs').select('terminal_id, type'),
-      db.from('orders').select('terminal_name, quantity, status'),
-    ]);
-
-    const installed = {};
-    (installs||[]).forEach(i => { if(i.type==='설치') installed[i.terminal_id] = (installed[i.terminal_id]||0)+1; else installed[i.terminal_id] = (installed[i.terminal_id]||0)-1; });
-    const pending = {};
-    (orders||[]).filter(o=>o.status==='배송중'||o.status==='발주확인'||o.status==='발주요청').forEach(o => { pending[o.terminal_name] = (pending[o.terminal_name]||0) + o.quantity; });
-
-    const totalStock = (terminals||[]).reduce((s,t)=>s+(t.stock||0),0);
-    const totalInstalled = Object.values(installed).reduce((s,v)=>s+Math.max(0,v),0);
-    const totalPending = Object.values(pending).reduce((s,v)=>s+v,0);
-
-    content.innerHTML = `
-    <div class="metrics">
-      <div class="metric"><div class="metric-label">창고 재고</div><div class="metric-value">${totalStock}</div></div>
-      <div class="metric"><div class="metric-label">설치 운용 중</div><div class="metric-value">${totalInstalled}</div></div>
-      <div class="metric"><div class="metric-label">입고 예정</div><div class="metric-value">${totalPending}</div></div>
-      <div class="metric"><div class="metric-label">총 단말기 종류</div><div class="metric-value">${(terminals||[]).length}</div></div>
-    </div>
-    <div class="card">
-      <div class="card-header"><div class="card-title">단말기별 재고 현황</div></div>
-      <table><thead><tr><th>단말기</th><th>구분</th><th>창고 재고</th><th>설치 중</th><th>입고 예정</th></tr></thead><tbody>
-      ${(terminals||[]).map(t => `<tr>
-        <td><strong>${t.name}</strong></td>
-        <td>${typeBadge(t.type)}</td>
-        <td><strong>${t.stock||0}</strong></td>
-        <td>${Math.max(0, installed[t.id]||0)}</td>
-        <td style="color:#1a56a0">${pending[t.name]||0}</td>
-      </tr>`).join('')}
-      </tbody></table>
-    </div>`;
-  } catch(e) { content.innerHTML = dbError(e); }
-}
-
-// =============================================
 // MERCHANTS
 // =============================================
 async function renderMerchants() {
-  const content = document.getElementById('content');
   try {
     const { data, error } = await db.from('merchants').select('*');
     if (error) throw error;
-    const sorted = (data||[]).slice().sort((a,b) => a.name.localeCompare(b.name, 'ko'));
+    const sorted = (data||[]).slice().sort((a,b) => a.name.localeCompare(b.name,'ko'));
+    window._merchants = sorted;
+
     const rows = sorted.map(m => {
-      const mJson = JSON.stringify(m).replace(/"/g,'&quot;');
-      const noteBtn = m.note ? '<button class="btn btn-sm" style="color:#1a56a0;border-color:#b5d4f4;" onclick="viewNote(' + m.id + ')">메모</button>' : '';
+      const noteBtn = m.note ? '<button class="btn btn-sm" style="color:#1a56a0;border-color:#b5d4f4;" onclick="viewMerchantNote(' + m.id + ')">메모</button>' : '';
       return '<tr>' +
         '<td><strong>' + m.name + '</strong></td>' +
         '<td style="color:#888">' + (m.biz_no||'-') + '</td>' +
         '<td>' + (m.address||'-') + '</td>' +
         '<td>' + typeBadge(m.type) + '</td>' +
-        '<td>' + merchantStatus(m.status) + '</td>' +
-        '<td style="display:flex;gap:6px;">' + noteBtn +
-          '<button class="btn btn-sm" onclick="editMerchantById(' + m.id + ')">편집</button>' +
-          '<button class="btn btn-sm btn-danger" onclick="deleteMerchantById(' + m.id + ')">삭제</button>' +
+        '<td>' + merchantStatusBadge(m.status) + '</td>' +
+        '<td style="display:flex;gap:4px;">' + noteBtn +
+          '<button class="btn btn-sm" onclick="editMerchant(' + m.id + ')">편집</button>' +
+          '<button class="btn btn-sm btn-danger" onclick="deleteMerchant(' + m.id + ')">삭제</button>' +
         '</td></tr>';
     }).join('');
-    content.innerHTML = '<div class="card">' +
-      '<div class="card-header"><div class="card-title">가맹점 목록</div>' +
-      '<div style="display:flex;gap:8px;">' +
-        '<button class="btn btn-sm btn-excel" onclick="exportTableExcel(\'merchant-list\',\'가맹점목록\')">📊 엑셀 저장</button>' +
-        '<button class="btn btn-sm btn-pdf" onclick="exportTablePDF(\'가맹점 관리\',\'merchant-list\')">📄 PDF 저장</button>' +
-      '</div></div>' +
+
+    document.getElementById('content').innerHTML =
+      '<div class="card">' +
+      '<div class="card-header"><div class="card-title">가맹점 목록 (' + sorted.length + '곳)</div>' +
+      '<button class="btn btn-sm btn-excel" onclick="exportMerchantsExcel()">📊 엑셀 저장</button></div>' +
       (sorted.length === 0 ? emptyState('등록된 가맹점이 없습니다.') :
         '<table><thead><tr><th>가맹점명</th><th>사업자번호</th><th>주소</th><th>구분</th><th>상태</th><th></th></tr></thead>' +
         '<tbody id="merchant-list">' + rows + '</tbody></table>') +
       '</div>';
-    window._merchantData = sorted;
-  } catch(e) { content.innerHTML = dbError(e); }
+  } catch(e) { document.getElementById('content').innerHTML = dbError(e); }
 }
 
-function viewNote(id) {
-  const m = (window._merchantData||[]).find(x => x.id === id);
-  if (!m) return;
-  document.getElementById('modal-title').textContent = m.name + ' — 메모';
-  const div = document.createElement('div');
-  div.style.cssText = 'white-space:pre-wrap;font-size:13px;color:#333;line-height:1.7;background:#fafaf8;border:1px solid #e8e8e4;border-radius:8px;padding:14px;min-height:60px;';
-  div.textContent = m.note || '';
-  document.getElementById('modal-body').innerHTML = '';
-  document.getElementById('modal-body').appendChild(div);
-  document.getElementById('modal-footer').innerHTML = '<button class="btn btn-primary" onclick="closeModal()">닫기</button>';
-  document.getElementById('modal-overlay').classList.add('open');
+function merchantStatusBadge(s) {
+  if (s==='운영중') return '<span class="badge badge-green">운영중</span>';
+  if (s==='계약중') return '<span class="badge badge-amber">계약중</span>';
+  return '<span class="badge badge-red">해지</span>';
 }
 
 function merchantForm(m = {}) {
-  return `
-  <div class="form-row">
-    <div class="form-group"><label class="form-label">가맹점명 *</label><input id="m-name" class="form-input" value="${m.name||''}" placeholder="가맹점 이름"/></div>
-    <div class="form-group"><label class="form-label">사업자번호</label><input id="m-biz" class="form-input" value="${m.biz_no||''}" placeholder="000-00-00000"/></div>
-  </div>
-  <div class="form-group"><label class="form-label">주소</label><input id="m-addr" class="form-input" value="${m.address||''}" placeholder="주소 입력"/></div>
-  <div class="form-row">
-    <div class="form-group"><label class="form-label">구분</label><select id="m-type" class="form-select"><option ${m.type==='VAN'?'selected':''}>VAN</option><option ${m.type==='PG'?'selected':''}>PG</option><option ${m.type==='VAN+PG'?'selected':''}>VAN+PG</option></select></div>
-    <div class="form-group"><label class="form-label">상태</label><select id="m-status" class="form-select"><option ${m.status==='운영중'?'selected':''}>운영중</option><option ${m.status==='계약중'?'selected':''}>계약중</option><option ${m.status==='해지'?'selected':''}>해지</option></select></div>
-  </div>
-  <div class="form-group"><label class="form-label">메모</label><textarea id="m-note" class="form-textarea">${m.note||''}</textarea></div>`;
-}
-
-function editMerchantById(id) {
-  const m = (window._merchantData||[]).find(x => x.id === id);
-  if (m) openEditMerchant(m);
-}
-
-async function deleteMerchantById(id) {
-  const m = (window._merchantData||[]).find(x => x.id === id);
-  const name = m ? m.name : '이 가맹점';
-  if (!confirm('"' + name + '" 가맹점을 삭제할까요?')) return;
-  const { error } = await db.from('merchants').delete().eq('id', id);
-  if (error) return toast('삭제 실패', 'error');
-  toast('삭제되었습니다.'); renderMerchants();
+  return '<div class="form-row">' +
+    '<div class="form-group"><label class="form-label">가맹점명 *</label><input id="m-name" class="form-input" value="' + (m.name||'') + '"/></div>' +
+    '<div class="form-group"><label class="form-label">사업자번호</label><input id="m-biz" class="form-input" value="' + (m.biz_no||'') + '" placeholder="000-00-00000"/></div>' +
+    '</div><div class="form-group"><label class="form-label">주소</label><input id="m-addr" class="form-input" value="' + (m.address||'') + '"/></div>' +
+    '<div class="form-row">' +
+    '<div class="form-group"><label class="form-label">구분</label><select id="m-type" class="form-select">' +
+    ['VAN','PG','VAN+PG'].map(s => '<option ' + (m.type===s?'selected':'') + '>' + s + '</option>').join('') +
+    '</select></div>' +
+    '<div class="form-group"><label class="form-label">상태</label><select id="m-status" class="form-select">' +
+    ['운영중','계약중','해지'].map(s => '<option ' + (m.status===s?'selected':'') + '>' + s + '</option>').join('') +
+    '</select></div>' +
+    '</div><div class="form-group"><label class="form-label">메모</label><textarea id="m-note" class="form-textarea">' + (m.note||'') + '</textarea></div>';
 }
 
 function openAddMerchant() {
@@ -613,238 +945,142 @@ function openAddMerchant() {
     if (!name) return toast('가맹점명을 입력해주세요.', 'error');
     const { error } = await db.from('merchants').insert({ name, biz_no: v('m-biz'), address: v('m-addr'), type: v('m-type'), status: v('m-status'), note: v('m-note') });
     if (error) return toast('저장 실패: ' + error.message, 'error');
-    toast('가맹점이 추가되었습니다.'); closeModal(); renderMerchants();
+    toast('추가되었습니다.'); closeModal(); renderMerchants();
   });
 }
 
-function openEditMerchant(m) {
+function editMerchant(id) {
+  const m = (window._merchants||[]).find(x => x.id === id);
+  if (!m) return;
   openModal('가맹점 편집', merchantForm(m), async () => {
     const name = v('m-name');
     if (!name) return toast('가맹점명을 입력해주세요.', 'error');
-    const { error } = await db.from('merchants').update({ name, biz_no: v('m-biz'), address: v('m-addr'), type: v('m-type'), status: v('m-status'), note: v('m-note') }).eq('id', m.id);
+    const { error } = await db.from('merchants').update({ name, biz_no: v('m-biz'), address: v('m-addr'), type: v('m-type'), status: v('m-status'), note: v('m-note') }).eq('id', id);
     if (error) return toast('저장 실패: ' + error.message, 'error');
     toast('수정되었습니다.'); closeModal(); renderMerchants();
   });
 }
 
-async function deleteMerchant(id, name) {
-  if (!confirm(`"${name}" 가맹점을 삭제할까요?`)) return;
+async function deleteMerchant(id) {
+  if (!confirm('이 가맹점을 삭제할까요?')) return;
   const { error } = await db.from('merchants').delete().eq('id', id);
   if (error) return toast('삭제 실패', 'error');
   toast('삭제되었습니다.'); renderMerchants();
 }
 
-// =============================================
-// INSTALLS
-// =============================================
-async function renderInstalls() {
-  const content = document.getElementById('content');
-  try {
-    const { data, error } = await db.from('installs').select('*, merchants(name), terminals(name)').order('install_date', { ascending: false });
-    if (error) throw error;
-    content.innerHTML = `<div class="card">
-      <div class="card-header"><div class="card-title">설치 / 회수 이력</div><div style="display:flex;gap:8px;"><button class="btn btn-sm btn-excel" onclick="exportTableExcel('install-list','설치회수이력')">📊 엑셀 저장</button><button class="btn btn-sm btn-pdf" onclick="exportTablePDF('설치/회수 이력','install-list')">📄 PDF 저장</button></div></div>
-      ${(data||[]).length===0 ? emptyState('이력이 없습니다.') : `
-      <table><thead><tr><th>날짜</th><th>가맹점</th><th>단말기</th><th>시리얼(S/N)</th><th>구분</th><th>담당자</th><th></th></tr></thead><tbody id='install-list'>
-      ${data.map(i => `<tr>
-        <td>${i.install_date||'-'}</td>
-        <td>${i.merchants?.name||'-'}</td>
-        <td>${i.terminals?.name||'-'}</td>
-        <td style="color:#888;font-size:12px">${i.serial_no||'-'}</td>
-        <td>${i.type==='설치'?'<span class="badge badge-green">설치</span>':'<span class="badge badge-red">회수</span>'}</td>
-        <td>${i.manager||'-'}</td>
-        <td><button class="btn btn-sm btn-danger" onclick="deleteInstall(${i.id})">삭제</button></td>
-      </tr>`).join('')}
-      </tbody></table>`}
-    </div>`;
-  } catch(e) { content.innerHTML = dbError(e); }
+function viewMerchantNote(id) {
+  const m = (window._merchants||[]).find(x => x.id === id);
+  if (!m) return;
+  document.getElementById('modal-title').textContent = m.name + ' — 메모';
+  const div = document.createElement('div');
+  div.style.cssText = 'white-space:pre-wrap;font-size:13px;color:#333;line-height:1.7;background:#fafaf8;border:1px solid #e8e8e4;border-radius:8px;padding:14px;';
+  div.textContent = m.note||'';
+  document.getElementById('modal-body').innerHTML = '';
+  document.getElementById('modal-body').appendChild(div);
+  document.getElementById('modal-footer').innerHTML = '<button class="btn btn-primary" onclick="closeModal()">닫기</button>';
+  document.getElementById('modal-overlay').classList.add('open');
 }
 
-function openAddInstall() {
-  Promise.all([db.from('merchants').select('id,name').eq('status','운영중'), db.from('terminals').select('id,name')]).then(([{data:ms},{data:ts}]) => {
-    const mOpts = (ms||[]).map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
-    const tOpts = (ts||[]).map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
-    openModal('설치/회수 등록', `
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">가맹점 *</label><select id="i-merchant" class="form-select">${mOpts||'<option>가맹점 없음</option>'}</select></div>
-      <div class="form-group"><label class="form-label">단말기 *</label><select id="i-terminal" class="form-select">${tOpts||'<option>단말기 없음</option>'}</select></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">시리얼번호 (S/N)</label><input id="i-serial" class="form-input" placeholder="예: IC-0300"/></div>
-      <div class="form-group"><label class="form-label">구분</label><select id="i-type" class="form-select"><option>설치</option><option>회수</option></select></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">날짜</label><input id="i-date" class="form-input" type="date" value="${today()}"/></div>
-      <div class="form-group"><label class="form-label">담당자</label><input id="i-mgr" class="form-input" placeholder="담당자 이름"/></div>
-    </div>`, async () => {
-      const merchant_id = v('i-merchant'); const terminal_id = v('i-terminal');
-      if (!merchant_id || !terminal_id) return toast('가맹점과 단말기를 선택해주세요.', 'error');
-      const { error } = await db.from('installs').insert({ merchant_id: parseInt(merchant_id), terminal_id: parseInt(terminal_id), serial_no: v('i-serial'), type: v('i-type'), install_date: v('i-date'), manager: v('i-mgr') });
-      if (error) return toast('저장 실패: ' + error.message, 'error');
-      toast('이력이 등록되었습니다.'); closeModal(); renderInstalls();
-    });
-  });
-}
-
-async function deleteInstall(id) {
-  if (!confirm('이 이력을 삭제할까요?')) return;
-  const { error } = await db.from('installs').delete().eq('id', id);
-  if (error) return toast('삭제 실패', 'error');
-  toast('삭제되었습니다.'); renderInstalls();
+function exportMerchantsExcel() {
+  const data = (window._merchants||[]).map(m => ({ 가맹점명: m.name, 사업자번호: m.biz_no, 주소: m.address, 구분: m.type, 상태: m.status, 메모: m.note }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '가맹점');
+  XLSX.writeFile(wb, '가맹점목록_' + today() + '.xlsx');
+  toast('엑셀 저장 완료');
 }
 
 // =============================================
 // REVENUE
 // =============================================
 async function renderRevenue() {
-  const content = document.getElementById('content');
   try {
     const { data, error } = await db.from('revenue').select('*, merchants(name)').order('month', { ascending: false });
     if (error) throw error;
+    window._revenue = data || [];
 
-    const thisMonth = new Date().toISOString().slice(0,7);
-    const thisMonthData = (data||[]).filter(r=>r.month===thisMonth);
-    const totalVan = thisMonthData.reduce((s,r)=>s+(r.van_revenue||0),0);
-    const totalPg = thisMonthData.reduce((s,r)=>s+(r.pg_revenue||0),0);
+    const month = thisMonth();
+    const thisMonthData = window._revenue.filter(r => r.month === month);
+    const totalVan = thisMonthData.reduce((s,r) => s+(r.van_revenue||0), 0);
+    const totalPg = thisMonthData.reduce((s,r) => s+(r.pg_revenue||0), 0);
     const total = totalVan + totalPg;
-    const vanPct = total>0 ? Math.round(totalVan/total*100) : 0;
-    const pgPct = 100 - vanPct;
+    const vanPct = total > 0 ? Math.round(totalVan/total*100) : 0;
 
-    content.innerHTML = `
-    <div class="metrics">
-      <div class="metric"><div class="metric-label">이번 달 총 수익</div><div class="metric-value" style="font-size:18px">₩${total.toLocaleString()}원</div></div>
-      <div class="metric"><div class="metric-label">VAN 수익</div><div class="metric-value" style="font-size:18px">₩${totalVan.toLocaleString()}원</div><div class="metric-sub">${vanPct}%</div></div>
-      <div class="metric"><div class="metric-label">PG 수익</div><div class="metric-value" style="font-size:18px">₩${totalPg.toLocaleString()}원</div><div class="metric-sub">${pgPct}%</div></div>
-      <div class="metric"><div class="metric-label">이번 달 입력 건수</div><div class="metric-value">${thisMonthData.length}건</div></div>
-    </div>
-    ${total>0?`<div class="card"><div class="card-header"><div class="card-title">VAN vs PG 비중</div></div>
-    <div class="rev-split"><div class="rev-van" style="width:${vanPct}%"></div><div class="rev-pg" style="width:${pgPct}%"></div></div>
-    <div style="display:flex;gap:16px;font-size:12px;color:#888;margin-top:6px;">
-      <span>🟢 VAN ${vanPct}%</span><span>🔵 PG ${pgPct}%</span>
-    </div></div>`:''}
-    <div class="card">
-      <div class="card-header"><div class="card-title">매출 내역</div><div style="display:flex;gap:8px;"><button class="btn btn-sm btn-excel" onclick="exportRevenueExcel()">📊 엑셀 저장</button><button class="btn btn-sm btn-pdf" onclick="exportRevenuePDF()">📄 PDF 저장</button></div></div>
-      ${(data||[]).length===0 ? emptyState('매출 내역이 없습니다.') : `
-      <table><thead><tr><th>월</th><th>가맹점</th><th>가맹점 매출</th><th>VAN 수익</th><th>PG 수익</th><th>메모</th><th></th></tr></thead><tbody id='revenue-list'>
-      ${data.map(r => `<tr>
-        <td>${r.month}</td>
-        <td>${r.merchants?.name||'-'}</td>
-        <td>₩${(r.merchant_sales||0).toLocaleString()}</td>
-        <td style="color:#0a6644">₩${(r.van_revenue||0).toLocaleString()}</td>
-        <td style="color:#1a56a0">₩${(r.pg_revenue||0).toLocaleString()}</td>
-        <td style="color:#888">${r.note||'-'}</td>
-        <td><button class="btn btn-sm btn-danger" onclick="deleteRevenue(${r.id})">삭제</button></td>
-      </tr>`).join('')}
-      </tbody></table>`}
-    </div>`;
-  } catch(e) { content.innerHTML = dbError(e); }
+    let html = '<div class="metrics">' +
+      '<div class="metric"><div class="metric-label">이번 달 총 수익</div><div class="metric-value" style="font-size:18px">₩' + total.toLocaleString() + '원</div></div>' +
+      '<div class="metric"><div class="metric-label">VAN 수익</div><div class="metric-value" style="font-size:18px">₩' + totalVan.toLocaleString() + '원</div><div class="metric-sub">' + vanPct + '%</div></div>' +
+      '<div class="metric"><div class="metric-label">PG 수익</div><div class="metric-value" style="font-size:18px">₩' + totalPg.toLocaleString() + '원</div><div class="metric-sub">' + (100-vanPct) + '%</div></div>' +
+      '<div class="metric"><div class="metric-label">이번 달 입력</div><div class="metric-value">' + thisMonthData.length + '건</div></div>' +
+      '</div>';
+
+    html += '<div class="card"><div class="card-header"><div class="card-title">매출 내역</div>' +
+      '<button class="btn btn-sm btn-excel" onclick="exportRevenueExcel()">📊 엑셀 저장</button></div>';
+
+    if (window._revenue.length === 0) { html += emptyState('매출 내역이 없습니다.'); }
+    else {
+      html += '<table><thead><tr><th>월</th><th>가맹점</th><th>가맹점 매출</th><th>VAN 수익</th><th>PG 수익</th><th>메모</th><th></th></tr></thead><tbody id="revenue-list">';
+      window._revenue.forEach(r => {
+        html += '<tr>' +
+          '<td>' + r.month + '</td>' +
+          '<td>' + (r.merchants?.name||'-') + '</td>' +
+          '<td>₩' + (r.merchant_sales||0).toLocaleString() + '원</td>' +
+          '<td style="color:#0a6644">₩' + (r.van_revenue||0).toLocaleString() + '원</td>' +
+          '<td style="color:#1a56a0">₩' + (r.pg_revenue||0).toLocaleString() + '원</td>' +
+          '<td style="color:#888">' + (r.note||'-') + '</td>' +
+          '<td><button class="btn btn-sm btn-danger" onclick="deleteRevenue(' + r.id + ')">삭제</button></td>' +
+          '</tr>';
+      });
+      html += '</tbody></table>';
+    }
+    html += '</div>';
+    document.getElementById('content').innerHTML = html;
+  } catch(e) { document.getElementById('content').innerHTML = dbError(e); }
 }
 
 function openAddRevenue() {
-  db.from('merchants').select('id,name').then(({data}) => {
-    const opts = (data||[]).map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
-    openModal('매출 입력', `
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">가맹점 *</label><select id="r-merchant" class="form-select">${opts||'<option>가맹점 없음</option>'}</select></div>
-      <div class="form-group"><label class="form-label">정산 월 *</label><input id="r-month" class="form-input" type="month" value="${new Date().toISOString().slice(0,7)}"/></div>
-    </div>
-    <div class="form-row3">
-      <div class="form-group"><label class="form-label">가맹점 매출 (원)</label><input id="r-sales" class="form-input" type="number" placeholder="0"/></div>
-      <div class="form-group"><label class="form-label">VAN 수익 (원)</label><input id="r-van" class="form-input" type="number" placeholder="0"/></div>
-      <div class="form-group"><label class="form-label">PG 수익 (원)</label><input id="r-pg" class="form-input" type="number" placeholder="0"/></div>
-    </div>
-    <div class="form-group"><label class="form-label">메모</label><input id="r-note" class="form-input" placeholder="메모"/></div>`, async () => {
-      const merchant_id = v('r-merchant'); const month = v('r-month');
-      if (!merchant_id || !month) return toast('가맹점과 월을 선택해주세요.', 'error');
-      const { error } = await db.from('revenue').insert({ merchant_id: parseInt(merchant_id), month, merchant_sales: parseInt(v('r-sales'))||0, van_revenue: parseInt(v('r-van'))||0, pg_revenue: parseInt(v('r-pg'))||0, note: v('r-note') });
-      if (error) return toast('저장 실패: ' + error.message, 'error');
-      toast('매출이 입력되었습니다.'); closeModal(); renderRevenue();
-    });
+  db.from('merchants').select('id,name').order('name').then(({data}) => {
+    const opts = (data||[]).map(m => '<option value="' + m.id + '">' + m.name + '</option>').join('');
+    openModal('매출 입력',
+      '<div class="form-row">' +
+      '<div class="form-group"><label class="form-label">가맹점 *</label><select id="r-merchant" class="form-select">' + opts + '</select></div>' +
+      '<div class="form-group"><label class="form-label">정산 월 *</label><input id="r-month" class="form-input" type="month" value="' + thisMonth() + '"/></div>' +
+      '</div><div class="form-row3">' +
+      '<div class="form-group"><label class="form-label">가맹점 매출 (원)</label><input id="r-sales" class="form-input" type="number" placeholder="0"/></div>' +
+      '<div class="form-group"><label class="form-label">VAN 수익 (원)</label><input id="r-van" class="form-input" type="number" placeholder="0"/></div>' +
+      '<div class="form-group"><label class="form-label">PG 수익 (원)</label><input id="r-pg" class="form-input" type="number" placeholder="0"/></div>' +
+      '</div><div class="form-group"><label class="form-label">메모</label><input id="r-note" class="form-input" placeholder="메모"/></div>',
+      async () => {
+        const merchant_id = v('r-merchant'); const month = v('r-month');
+        if (!merchant_id || !month) return toast('가맹점과 월을 선택해주세요.', 'error');
+        const { error } = await db.from('revenue').insert({
+          merchant_id: parseInt(merchant_id), month,
+          merchant_sales: parseInt(v('r-sales'))||0, van_revenue: parseInt(v('r-van'))||0,
+          pg_revenue: parseInt(v('r-pg'))||0, note: v('r-note')
+        });
+        if (error) return toast('저장 실패: ' + error.message, 'error');
+        toast('입력되었습니다.'); closeModal(); renderRevenue();
+      }
+    );
   });
 }
 
 async function deleteRevenue(id) {
-  if (!confirm('이 항목을 삭제할까요?')) return;
+  if (!confirm('삭제할까요?')) return;
   const { error } = await db.from('revenue').delete().eq('id', id);
   if (error) return toast('삭제 실패', 'error');
   toast('삭제되었습니다.'); renderRevenue();
 }
 
-// =============================================
-// EXPORT FUNCTIONS
-// =============================================
-function exportTableExcel(tbodyId, filename) {
-  const tbody = document.getElementById(tbodyId);
-  if (!tbody) return toast('내보낼 데이터가 없습니다.', 'error');
-  const table = tbody.closest('table');
-  const ws = XLSX.utils.table_to_sheet(table);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, filename);
-  XLSX.writeFile(wb, filename + '_' + today() + '.xlsx');
-  toast('엑셀 파일이 저장되었습니다.');
-}
-
 function exportRevenueExcel() {
-  exportTableExcel('revenue-list', '매출정산내역');
-}
-
-function exportTablePDF(title, tbodyId) {
-  const { jsPDF } = window.jspdf;
-  const tbody = document.getElementById(tbodyId);
-  if (!tbody) return toast('내보낼 데이터가 없습니다.', 'error');
-  const table = tbody.closest('table');
-  const headers = [];
-  const rows = [];
-  table.querySelectorAll('thead th').forEach(th => headers.push(th.innerText));
-  table.querySelectorAll('tbody tr').forEach(tr => {
-    const row = [];
-    tr.querySelectorAll('td').forEach((td, i) => {
-      if (i < headers.length) row.push(td.innerText.trim());
-    });
-    if (row.length) rows.push(row);
-  });
-  const doc = new jsPDF({ orientation: 'landscape' });
-  doc.setFont('helvetica');
-  doc.setFontSize(14);
-  doc.text(title + ' (' + today() + ')', 14, 16);
-  doc.autoTable({ head: [headers], body: rows, startY: 22, styles: { fontSize: 9 }, headStyles: { fillColor: [22, 33, 62] } });
-  doc.save(title + '_' + today() + '.pdf');
-  toast('PDF 파일이 저장되었습니다.');
-}
-
-function exportRevenuePDF() {
-  exportTablePDF('매출/정산 내역', 'revenue-list');
-}
-
-// =============================================
-// HELPERS
-// =============================================
-function v(id) { return document.getElementById(id)?.value || ''; }
-function today() { return new Date().toISOString().slice(0,10); }
-
-function typeBadge(type) {
-  if (type==='VAN') return '<span class="badge badge-blue">VAN</span>';
-  if (type==='PG') return '<span class="badge badge-amber">PG</span>';
-  return '<span class="badge badge-gray">VAN+PG</span>';
-}
-
-function statusBadge(status, ctx) {
-  const map = { '발주요청':'badge-gray','발주확인':'badge-blue','배송중':'badge-amber','입고완료':'badge-green','설치완료':'badge-teal' };
-  return `<span class="badge ${map[status]||'badge-gray'}">${status}</span>`;
-}
-
-function merchantStatus(s) {
-  if (s==='운영중') return '<span class="badge badge-green">운영중</span>';
-  if (s==='계약중') return '<span class="badge badge-amber">계약중</span>';
-  return '<span class="badge badge-red">해지</span>';
-}
-
-function emptyState(msg) {
-  return `<div class="empty-state"><div class="es-icon">📭</div><div class="es-text">${msg}</div></div>`;
-}
-
-function dbError(e) {
-  return `<div class="card"><div style="color:#b91c1c;font-size:13px;padding:16px;">⚠️ 데이터베이스 연결 오류: ${e.message}<br><br><strong>supabase.js에 올바른 URL과 키를 입력했는지 확인해주세요.</strong></div></div>`;
+  const data = (window._revenue||[]).map(r => ({
+    월: r.month, 가맹점: r.merchants?.name,
+    가맹점매출: r.merchant_sales, VAN수익: r.van_revenue, PG수익: r.pg_revenue, 메모: r.note
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '매출정산');
+  XLSX.writeFile(wb, '매출정산_' + today() + '.xlsx');
+  toast('엑셀 저장 완료');
 }
 
 // =============================================
