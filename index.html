@@ -900,17 +900,83 @@ async function renderMerchants() {
 
 function renderMerchantTable() {
   const sorted = window._merchants || [];
-  const q = (window._merchantSearch||'').toLowerCase();
+  const q = (window._merchantSearch || '').toLowerCase().trim();
   const filtered = q ? sorted.filter(m =>
-    m.name.toLowerCase().includes(q) ||
+    (m.name||'').toLowerCase().includes(q) ||
     (m.biz_no||'').includes(q) ||
-    (m.address||'').toLowerCase().includes(q)
+    (m.address||'').toLowerCase().includes(q) ||
+    (m.phone||'').includes(q)
   ) : sorted;
 
-    const rows = filtered.map(m => {
+  const contentEl = document.getElementById('content');
+
+  // 카드 wrapper
+  const card = document.createElement('div');
+  card.className = 'card';
+
+  // 카드 헤더
+  const cardHeader = document.createElement('div');
+  cardHeader.className = 'card-header';
+  cardHeader.innerHTML =
+    '<div class="card-title">가맹점 목록 (' + sorted.length + '곳)</div>' +
+    '<div style="display:flex;gap:8px;">' +
+      '<button class="btn btn-sm btn-excel" onclick="downloadMerchantTemplate()">📥 양식 다운로드</button>' +
+      '<button class="btn btn-sm" style="color:#7c3aed;border-color:#c4b5fd;background:#fff;" onclick="triggerMerchantUpload()">📤 엑셀 업로드</button>' +
+      '<button class="btn btn-sm btn-excel" onclick="exportMerchantsExcel()">📊 엑셀 저장</button>' +
+    '</div>';
+  card.appendChild(cardHeader);
+
+  // 검색창
+  const searchWrap = document.createElement('div');
+  searchWrap.style.cssText = 'margin-bottom:14px;position:relative;';
+  const searchInput = document.createElement('input');
+  searchInput.id = 'merchant-search';
+  searchInput.className = 'form-input';
+  searchInput.placeholder = '🔍 가맹점명, 사업자번호, 연락처, 주소 검색...';
+  searchInput.value = window._merchantSearch || '';
+  searchInput.style.paddingLeft = '14px';
+  searchInput.oninput = function() {
+    window._merchantSearch = this.value;
+    renderMerchantTable();
+  };
+  searchWrap.appendChild(searchInput);
+
+  if (window._merchantSearch) {
+    const clearBtn = document.createElement('button');
+    clearBtn.textContent = '✕';
+    clearBtn.style.cssText = 'position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#aaa;font-size:16px;';
+    clearBtn.onclick = function() {
+      window._merchantSearch = '';
+      renderMerchantTable();
+    };
+    searchWrap.appendChild(clearBtn);
+  }
+  card.appendChild(searchWrap);
+
+  // 검색 결과 수
+  if (q) {
+    const countEl = document.createElement('div');
+    countEl.style.cssText = 'font-size:12px;color:#888;margin-bottom:8px;';
+    countEl.textContent = '검색결과 ' + filtered.length + '곳';
+    card.appendChild(countEl);
+  }
+
+  // 테이블 or 빈 상태
+  if (filtered.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.innerHTML = '<div class="es-icon">📭</div><div>' + (q ? '검색 결과가 없습니다.' : '등록된 가맹점이 없습니다.') + '</div>';
+    card.appendChild(empty);
+  } else {
+    const table = document.createElement('table');
+    table.innerHTML = '<thead><tr><th>가맹점명</th><th>사업자번호</th><th>연락처</th><th>주소</th><th>구분</th><th>상태</th><th></th></tr></thead>';
+    const tbody = document.createElement('tbody');
+    tbody.id = 'merchant-list';
+    filtered.forEach(m => {
+      const tr = document.createElement('tr');
       const noteBtn = m.note ? '<button class="btn btn-sm" style="color:#1a56a0;border-color:#b5d4f4;" onclick="viewMerchantNote(' + m.id + ')">메모</button>' : '';
-      return '<tr>' +
-        '<td><strong>' + m.name + '</strong></td>' +
+      tr.innerHTML =
+        '<td><strong>' + (m.name||'-') + '</strong></td>' +
         '<td style="color:#888">' + (m.biz_no||'-') + '</td>' +
         '<td style="color:#333">' + (m.phone||'-') + '</td>' +
         '<td style="color:#555;font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (m.address||'-') + '</td>' +
@@ -919,29 +985,17 @@ function renderMerchantTable() {
         '<td style="display:flex;gap:4px;">' + noteBtn +
           '<button class="btn btn-sm" onclick="editMerchant(' + m.id + ')">편집</button>' +
           '<button class="btn btn-sm btn-danger" onclick="deleteMerchant(' + m.id + ')">삭제</button>' +
-        '</td></tr>';
-    }).join('');
+        '</td>';
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    card.appendChild(table);
+  }
 
-    document.getElementById('content').innerHTML =
-      '<div class="card">' +
-      '<div class="card-header"><div class="card-title">가맹점 목록 (' + sorted.length + '곳)</div>' +
-      '<div style="display:flex;gap:8px;">' +
-        '<button class="btn btn-sm btn-excel" onclick="downloadMerchantTemplate()">📥 양식 다운로드</button>' +
-        '<button class="btn btn-sm" id="upload-btn" style="color:#7c3aed;border-color:#c4b5fd;background:#fff;" onclick="triggerMerchantUpload()">📤 엑셀 업로드</button>' +
-        '<button class="btn btn-sm btn-excel" onclick="exportMerchantsExcel()">📊 엑셀 저장</button>' +
-      '</div></div>' +
-      '<div style="margin-bottom:14px;position:relative;">' +
-        '<input id="merchant-search" class="form-input" placeholder="🔍 가맹점명, 사업자번호, 주소 검색..." value="' + (window._merchantSearch||'') + '" ' +
-        'oninput="window._merchantSearch=this.value;renderMerchantTable()" ' +
-        'style="padding-left:14px;"/>' +
-        (window._merchantSearch ? '<button onclick="window._merchantSearch=\'\';document.getElementById(\'merchant-search\').value=\'\';renderMerchantTable()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#aaa;font-size:16px;">✕</button>' : '') +
-      '</div>' +
-      (filtered.length === 0 ? emptyState(q ? '검색 결과가 없습니다.' : '등록된 가맹점이 없습니다.') :
-        '<div style="font-size:12px;color:#888;margin-bottom:8px;">' + (q ? '검색결과 ' + filtered.length + '곳' : '') + '</div>' +
-        '<table><thead><tr><th>가맹점명</th><th>사업자번호</th><th>연락처</th><th>주소</th><th>구분</th><th>상태</th><th></th></tr></thead>' +
-        '<tbody id="merchant-list">' + rows + '</tbody></table>') +
-      '</div>';
+  contentEl.innerHTML = '';
+  contentEl.appendChild(card);
 }
+
 
 function merchantStatusBadge(s) {
   if (s==='운영중') return '<span class="badge badge-green">운영중</span>';
