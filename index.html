@@ -925,7 +925,10 @@ function renderMerchantTable() {
     document.getElementById('content').innerHTML =
       '<div class="card">' +
       '<div class="card-header"><div class="card-title">가맹점 목록 (' + sorted.length + '곳)</div>' +
-      '<button class="btn btn-sm btn-excel" onclick="exportMerchantsExcel()">📊 엑셀 저장</button></div>' +
+      '<div style="display:flex;gap:8px;">' +
+        '<button class="btn btn-sm btn-excel" onclick="downloadMerchantTemplate()">📥 업데이트 양식 다운로드</button>' +
+        '<button class="btn btn-sm btn-excel" onclick="exportMerchantsExcel()">📊 엑셀 저장</button>' +
+      '</div></div>' +
       '<div style="margin-bottom:14px;position:relative;">' +
         '<input id="merchant-search" class="form-input" placeholder="🔍 가맹점명, 사업자번호, 주소 검색..." value="' + (window._merchantSearch||'') + '" ' +
         'oninput="window._merchantSearch=this.value;renderMerchantTable()" ' +
@@ -1007,6 +1010,68 @@ function viewMerchantNote(id) {
   document.getElementById('modal-footer').innerHTML = '<button class="btn btn-primary" onclick="closeModal()">닫기</button>';
   _modalSaveFn = null;
   document.getElementById('modal-overlay').classList.add('open');
+}
+
+function downloadMerchantTemplate() {
+  const merchants = window._merchants || [];
+  // 헤더 행
+  const headerRow1 = ['디앤에스밴코리아 — 가맹점 업데이트 양식'];
+  const headerRow2 = ['※ 사업자번호 기준으로 일치하면 업데이트, 새 행이면 추가됩니다. * 표시는 필수 항목입니다.'];
+  const hintRow   = ['필수 입력', '필수 입력 (기준키) 예: 123-45-67890', '예: 010-1234-5678', '도로명 주소', 'VAN / PG / VAN+PG', '운영중 / 계약중 / 해지', '자유 입력'];
+  const headers   = ['가맹점명*', '사업자번호*', '연락처', '주소', '구분', '상태', '메모'];
+
+  // 기존 데이터 행
+  const dataRows = merchants.map(m => [
+    m.name || '',
+    m.biz_no || '',
+    m.phone || '',
+    m.address || '',
+    m.type || 'VAN',
+    m.status || '운영중',
+    m.note || ''
+  ]);
+
+  const wsData = [headerRow1, headerRow2, hintRow, headers, ...dataRows];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // 컬럼 너비
+  ws['!cols'] = [
+    {wch:28},{wch:18},{wch:18},{wch:40},{wch:12},{wch:12},{wch:30}
+  ];
+
+  // 셀 병합 (제목, 안내)
+  ws['!merges'] = [
+    { s:{r:0,c:0}, e:{r:0,c:6} },
+    { s:{r:1,c:0}, e:{r:1,c:6} },
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '가맹점_업데이트');
+
+  // 입력가이드 시트
+  const guideData = [
+    ['입력 가이드', ''],
+    ['', ''],
+    ['[구분] 입력값', ''],
+    ['VAN', 'VAN 단말기 가맹점'],
+    ['PG', 'PG 단말기 가맹점'],
+    ['VAN+PG', 'VAN과 PG 모두 사용'],
+    ['', ''],
+    ['[상태] 입력값', ''],
+    ['운영중', '현재 정상 운영 중'],
+    ['계약중', '계약 진행 중 (미설치)'],
+    ['해지', '계약 해지된 가맹점'],
+    ['', ''],
+    ['[사업자번호] 형식', ''],
+    ['예시', '123-45-67890'],
+    ['주의', '이 값이 기준키입니다. 정확히 입력하세요.'],
+  ];
+  const ws2 = XLSX.utils.aoa_to_sheet(guideData);
+  ws2['!cols'] = [{wch:20},{wch:35}];
+  XLSX.utils.book_append_sheet(wb, ws2, '입력가이드');
+
+  XLSX.writeFile(wb, '가맹점_업데이트_양식_' + today() + '.xlsx');
+  toast('양식이 다운로드되었습니다. (' + merchants.length + '건)');
 }
 
 function exportMerchantsExcel() {
