@@ -155,6 +155,9 @@ tbody tr:hover td{background:#fafaf8;}
   <div class="nav-section">업무</div>
   <div class="nav-item" data-page="tasks"><span class="icon">📋</span>업무 현황<span class="nav-badge" id="badge-tasks">0</span></div>
   <div class="nav-item" data-page="cs"><span class="icon">🎧</span>CS 관리<span class="nav-badge" id="badge-cs">0</span></div>
+  <div class="nav-section">배송</div>
+  <div class="nav-item" data-page="delivery"><span class="icon">🚚</span>배송 현황<span class="nav-badge" id="badge-delivery">0</span></div>
+  <div class="nav-item" data-page="delivery-history"><span class="icon">📬</span>배송 이력</div>
   <div class="nav-section">재고/발주</div>
   <div class="nav-item" data-page="inventory"><span class="icon">📦</span>재고 관리</div>
   <div class="nav-item" data-page="orders"><span class="icon">🛒</span>발주 관리</div>
@@ -210,6 +213,8 @@ const pageConfig = {
   dashboard: { title: '대시보드', addBtn: null },
   tasks:     { title: '업무 현황', addBtn: { label: '업무 등록', fn: () => openAddTask() } },
   cs:        { title: 'CS 관리',  addBtn: { label: 'CS 접수',   fn: () => openAddCS() } },
+  delivery:  { title: '배송 현황', addBtn: { label: '배송 등록', fn: () => openAddDelivery() } },
+  'delivery-history': { title: '배송 이력', addBtn: { label: '배송 등록', fn: () => openAddDelivery() } },
   inventory: { title: '재고 관리',addBtn: { label: '품목 추가', fn: () => openAddInventory() } },
   orders:    { title: '발주 관리',addBtn: { label: '발주 등록', fn: () => openAddOrder() } },
   merchants: { title: '가맹점 관리', addBtn: { label: '가맹점 추가', fn: () => openAddMerchant() } },
@@ -238,6 +243,7 @@ function loadPage(page) {
   }
   document.getElementById('content').innerHTML = '<div class="loading">⏳ 불러오는 중...</div>';
   const renderers = { dashboard: renderDashboard, tasks: renderTasks, cs: renderCS,
+    delivery: renderDelivery, 'delivery-history': renderDeliveryHistory,
     inventory: renderInventory, orders: renderOrders, merchants: renderMerchants, revenue: renderRevenue };
   renderers[page]();
 }
@@ -1209,6 +1215,227 @@ function downloadMerchantTemplate() {
   XLSX.utils.book_append_sheet(wb, ws2, '입력가이드');
   XLSX.writeFile(wb, '가맹점_업데이트_양식_' + today() + '.xlsx');
   toast('양식이 다운로드되었습니다. (' + merchants.length + '건)');
+}
+
+
+// =============================================
+// DELIVERY
+// =============================================
+function deliveryStatusBadge(s) {
+  const m = { '요청접수':'badge-gray','재고확인':'badge-blue','준비중':'badge-amber','발송완료':'badge-green' };
+  return '<span class="badge ' + (m[s]||'badge-gray') + '">' + s + '</span>';
+}
+
+async function renderDelivery() {
+  const contentEl = document.getElementById('content');
+  try {
+    const { data, error } = await db.from('deliveries').select('*').neq('status','발송완료').order('created_at', { ascending: false });
+    if (error) throw error;
+    window._deliveries = data || [];
+    document.getElementById('badge-delivery').textContent = window._deliveries.length;
+
+    const statusGroups = ['요청접수','재고확인','준비중'];
+
+    // 플로우 스텝
+    let html = '<div class="flow-steps" style="margin-bottom:16px;">' +
+      ['요청접수','재고확인','준비중','발송완료'].map((s,i) =>
+        '<div class="flow-step ' + (i < 3 ? 'active' : '') + '">' + s + ' ' +
+        (i < 3 ? '(' + (window._deliveries.filter(d=>d.status===s).length) + ')' : '') + '</div>'
+      ).join('') + '</div>';
+
+    // 메트릭
+    const thisMonth = new Date().toISOString().slice(0,7);
+    const { data: allDel } = await db.from('deliveries').select('*').gte('created_at', thisMonth + '-01');
+    const monthDone = (allDel||[]).filter(d=>d.status==='발송완료');
+    const totalFee = monthDone.reduce((s,d)=>s+(d.shipping_fee||0),0);
+    const directCount = monthDone.filter(d=>d.courier==='직접 배송').length;
+
+    html += '<div class="metrics">' +
+      '<div class="metric"><div class="metric-label">진행 중</div><div class="metric-value">' + window._deliveries.length + '건</div><div class="metric-sub">처리 필요</div></div>' +
+      '<div class="metric"><div class="metric-label">이번 달 발송</div><div class="metric-value">' + monthDone.length + '건</div></div>' +
+      '<div class="metric"><div class="metric-label">이번 달 택배비</div><div class="metric-value">₩' + totalFee.toLocaleString() + '</div></div>' +
+      '<div class="metric"><div class="metric-label">직접 배송</div><div class="metric-value">' + directCount + '건</div><div class="metric-sub">이번 달</div></div>' +
+      '</div>';
+
+    // 진행중 목록
+    html += '<div class="card"><div class="card-header"><div class="card-title">진행 중 배송</div>' +
+      '<button class="btn btn-sm btn-excel" onclick="exportDeliveryExcel()">📊 엑셀 저장</button></div>';
+
+    if (window._deliveries.length === 0) {
+      html += emptyState('진행 중인 배송이 없습니다.');
+    } else {
+      html += '<table><thead><tr><th>가맹점</th><th>품목</th><th>수량</th><th>요청일</th><th>상태</th><th>담당자</th><th></th></tr></thead><tbody>';
+      window._deliveries.forEach(d => {
+        html += '<tr>' +
+          '<td><strong>' + (d.merchant_name||'-') + '</strong></td>' +
+          '<td>' + (d.item_name||'-') + '</td>' +
+          '<td>' + (d.quantity||'-') + '</td>' +
+          '<td style="color:#888;font-size:12px">' + (d.request_date||'-') + '</td>' +
+          '<td>' + deliveryStatusBadge(d.status) + '</td>' +
+          '<td>' + (d.manager||'-') + '</td>' +
+          '<td style="display:flex;gap:4px;">' +
+            '<button class="btn btn-sm" onclick="openEditDelivery(' + d.id + ')">편집</button>' +
+            '<button class="btn btn-sm btn-success" onclick="completeDelivery(' + d.id + ')">발송완료</button>' +
+            '<button class="btn btn-sm btn-danger" onclick="deleteDelivery(' + d.id + ')">삭제</button>' +
+          '</td></tr>';
+      });
+      html += '</tbody></table>';
+    }
+    html += '</div>';
+    contentEl.innerHTML = html;
+  } catch(e) { document.getElementById('content').innerHTML = dbError(e); }
+}
+
+async function renderDeliveryHistory() {
+  const contentEl = document.getElementById('content');
+  try {
+    const { data, error } = await db.from('deliveries').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    window._allDeliveries = data || [];
+
+    let html = '<div class="card"><div class="card-header"><div class="card-title">전체 배송 이력 (' + data.length + '건)</div>' +
+      '<button class="btn btn-sm btn-excel" onclick="exportDeliveryHistoryExcel()">📊 엑셀 저장</button></div>';
+
+    if (data.length === 0) {
+      html += emptyState('배송 이력이 없습니다.');
+    } else {
+      html += '<table><thead><tr><th>발송일</th><th>가맹점</th><th>품목</th><th>수량</th><th>택배사</th><th>운송장</th><th>요금</th><th>상태</th><th></th></tr></thead><tbody>';
+      data.forEach(d => {
+        html += '<tr>' +
+          '<td style="color:#888;font-size:12px">' + (d.shipped_date||d.request_date||'-') + '</td>' +
+          '<td><strong>' + (d.merchant_name||'-') + '</strong></td>' +
+          '<td>' + (d.item_name||'-') + '</td>' +
+          '<td>' + (d.quantity||'-') + '</td>' +
+          '<td>' + (d.courier ? '<span class="badge badge-gray">' + d.courier + '</span>' : '-') + '</td>' +
+          '<td style="font-size:12px;color:#888">' + (d.tracking_no||'-') + '</td>' +
+          '<td>' + (d.shipping_fee ? '₩' + d.shipping_fee.toLocaleString() : '-') + '</td>' +
+          '<td>' + deliveryStatusBadge(d.status) + '</td>' +
+          '<td style="display:flex;gap:4px;">' +
+            '<button class="btn btn-sm" onclick="openEditDelivery(' + d.id + ')">편집</button>' +
+            '<button class="btn btn-sm btn-danger" onclick="deleteDelivery(' + d.id + ')">삭제</button>' +
+          '</td></tr>';
+      });
+      html += '</tbody></table>';
+    }
+    html += '</div>';
+    contentEl.innerHTML = html;
+  } catch(e) { document.getElementById('content').innerHTML = dbError(e); }
+}
+
+async function getDeliveryItems() {
+  const { data } = await db.from('delivery_items').select('*').order('name');
+  return data || [];
+}
+
+function deliveryForm(d = {}) {
+  return '<div class="form-row">' +
+    '<div class="form-group"><label class="form-label">가맹점명 *</label><input id="dv-merchant" class="form-input" value="' + (d.merchant_name||'') + '" placeholder="가맹점 검색 또는 직접 입력"/></div>' +
+    '<div class="form-group"><label class="form-label">주소</label><input id="dv-addr" class="form-input" value="' + (d.merchant_addr||'') + '" placeholder="주소"/></div>' +
+    '</div><div class="form-row">' +
+    '<div class="form-group"><label class="form-label">품목 *</label><select id="dv-item" class="form-select">' +
+    '<option value="">선택</option>' +
+    ['감열지 79*70mm','감열지 58mm','USB 케이블','전원 어댑터','토스프론트','싸인패드','기타 소모품'].map(i =>
+      '<option ' + (d.item_name===i?'selected':'') + '>' + i + '</option>'
+    ).join('') +
+    '</select></div>' +
+    '<div class="form-group"><label class="form-label">수량</label><input id="dv-qty" class="form-input" value="' + (d.quantity||'') + '" placeholder="예: 50롤, 1개"/></div>' +
+    '</div><div class="form-row">' +
+    '<div class="form-group"><label class="form-label">상태</label><select id="dv-status" class="form-select">' +
+    ['요청접수','재고확인','준비중','발송완료'].map(s => '<option ' + (d.status===s?'selected':'') + '>' + s + '</option>').join('') +
+    '</select></div>' +
+    '<div class="form-group"><label class="form-label">담당자</label><input id="dv-manager" class="form-input" value="' + (d.manager||'') + '" placeholder="담당자"/></div>' +
+    '</div><div class="form-row">' +
+    '<div class="form-group"><label class="form-label">택배사</label><select id="dv-courier" class="form-select"><option value="">선택</option>' +
+    ['우체국 택배','CJ대한통운','로젠택배','직접 배송','기타'].map(s => '<option ' + (d.courier===s?'selected':'') + '>' + s + '</option>').join('') +
+    '</select></div>' +
+    '<div class="form-group"><label class="form-label">운송장 번호</label><input id="dv-tracking" class="form-input" value="' + (d.tracking_no||'') + '" placeholder="운송장 번호"/></div>' +
+    '</div><div class="form-row">' +
+    '<div class="form-group"><label class="form-label">요금 (원)</label><input id="dv-fee" class="form-input" type="number" value="' + (d.shipping_fee||'') + '" placeholder="예: 7000"/></div>' +
+    '<div class="form-group"><label class="form-label">요청일</label><input id="dv-reqdate" class="form-input" type="date" value="' + (d.request_date||today()) + '"/></div>' +
+    '</div>' +
+    '<div class="form-group"><label class="form-label">메모</label><input id="dv-note" class="form-input" value="' + (d.note||'') + '" placeholder="메모"/></div>';
+}
+
+function openAddDelivery() {
+  openModal('배송 등록', deliveryForm(), async () => {
+    const merchant_name = v('dv-merchant');
+    const item_name = v('dv-item');
+    if (!merchant_name || !item_name) return toast('가맹점명과 품목을 입력해주세요.', 'error');
+    const { error } = await db.from('deliveries').insert({
+      delivery_no: genNo('DEL'),
+      merchant_name, merchant_addr: v('dv-addr'),
+      item_name, quantity: v('dv-qty'),
+      status: v('dv-status'), manager: v('dv-manager'),
+      courier: v('dv-courier'), tracking_no: v('dv-tracking'),
+      shipping_fee: parseInt(v('dv-fee'))||0,
+      request_date: v('dv-reqdate'), note: v('dv-note')
+    });
+    if (error) return toast('저장 실패: ' + error.message, 'error');
+    toast('배송이 등록되었습니다.'); closeModal();
+    if (document.querySelector('[data-page="delivery"].active')) renderDelivery();
+    else renderDeliveryHistory();
+  });
+}
+
+function openEditDelivery(id) {
+  const all = [...(window._deliveries||[]), ...(window._allDeliveries||[])];
+  const d = all.find(x => x.id === id);
+  if (!d) return;
+  openModal('배송 편집', deliveryForm(d), async () => {
+    const { error } = await db.from('deliveries').update({
+      merchant_name: v('dv-merchant'), merchant_addr: v('dv-addr'),
+      item_name: v('dv-item'), quantity: v('dv-qty'),
+      status: v('dv-status'), manager: v('dv-manager'),
+      courier: v('dv-courier'), tracking_no: v('dv-tracking'),
+      shipping_fee: parseInt(v('dv-fee'))||0,
+      request_date: v('dv-reqdate'), note: v('dv-note')
+    }).eq('id', id);
+    if (error) return toast('저장 실패: ' + error.message, 'error');
+    toast('수정되었습니다.'); closeModal();
+    if ((window._deliveries||[]).find(x=>x.id===id)) renderDelivery();
+    else renderDeliveryHistory();
+  });
+}
+
+async function completeDelivery(id) {
+  const { error } = await db.from('deliveries').update({ status: '발송완료', shipped_date: today() }).eq('id', id);
+  if (error) return toast('오류: ' + error.message, 'error');
+  toast('발송완료 처리되었습니다.'); renderDelivery();
+}
+
+async function deleteDelivery(id) {
+  if (!confirm('이 배송 내역을 삭제할까요?')) return;
+  const { error } = await db.from('deliveries').delete().eq('id', id);
+  if (error) return toast('삭제 실패', 'error');
+  toast('삭제되었습니다.');
+  if ((window._deliveries||[]).find(x=>x.id===id)) renderDelivery();
+  else renderDeliveryHistory();
+}
+
+function exportDeliveryExcel() {
+  const data = (window._deliveries||[]).map(d => ({
+    가맹점: d.merchant_name, 품목: d.item_name, 수량: d.quantity,
+    상태: d.status, 택배사: d.courier, 운송장: d.tracking_no,
+    요금: d.shipping_fee, 요청일: d.request_date, 담당자: d.manager
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '배송현황');
+  XLSX.writeFile(wb, '배송현황_' + today() + '.xlsx');
+  toast('엑셀 저장 완료');
+}
+
+function exportDeliveryHistoryExcel() {
+  const data = (window._allDeliveries||[]).map(d => ({
+    발송일: d.shipped_date||d.request_date, 가맹점: d.merchant_name,
+    품목: d.item_name, 수량: d.quantity, 상태: d.status,
+    택배사: d.courier, 운송장: d.tracking_no, 요금: d.shipping_fee, 담당자: d.manager
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '배송이력');
+  XLSX.writeFile(wb, '배송이력_' + today() + '.xlsx');
+  toast('엑셀 저장 완료');
 }
 
 // =============================================
