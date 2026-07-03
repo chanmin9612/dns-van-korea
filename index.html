@@ -892,13 +892,27 @@ async function renderMerchants() {
     if (error) throw error;
     const sorted = (data||[]).slice().sort((a,b) => a.name.localeCompare(b.name,'ko'));
     window._merchants = sorted;
+    window._merchantSearch = window._merchantSearch || '';
+    renderMerchantTable();
+  } catch(e) { document.getElementById('content').innerHTML = dbError(e); }
+}
 
-    const rows = sorted.map(m => {
+function renderMerchantTable() {
+  const sorted = window._merchants || [];
+  const q = (window._merchantSearch||'').toLowerCase();
+  const filtered = q ? sorted.filter(m =>
+    m.name.toLowerCase().includes(q) ||
+    (m.biz_no||'').includes(q) ||
+    (m.address||'').toLowerCase().includes(q)
+  ) : sorted;
+
+    const rows = filtered.map(m => {
       const noteBtn = m.note ? '<button class="btn btn-sm" style="color:#1a56a0;border-color:#b5d4f4;" onclick="viewMerchantNote(' + m.id + ')">메모</button>' : '';
       return '<tr>' +
         '<td><strong>' + m.name + '</strong></td>' +
         '<td style="color:#888">' + (m.biz_no||'-') + '</td>' +
-        '<td>' + (m.address||'-') + '</td>' +
+        '<td>' + (m.phone ? '<a href="tel:' + m.phone + '" style="color:#1a56a0;">' + m.phone + '</a>' : '-') + '</td>' +
+        '<td style="color:#555;font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (m.address||'-') + '</td>' +
         '<td>' + typeBadge(m.type) + '</td>' +
         '<td>' + merchantStatusBadge(m.status) + '</td>' +
         '<td style="display:flex;gap:4px;">' + noteBtn +
@@ -911,11 +925,17 @@ async function renderMerchants() {
       '<div class="card">' +
       '<div class="card-header"><div class="card-title">가맹점 목록 (' + sorted.length + '곳)</div>' +
       '<button class="btn btn-sm btn-excel" onclick="exportMerchantsExcel()">📊 엑셀 저장</button></div>' +
-      (sorted.length === 0 ? emptyState('등록된 가맹점이 없습니다.') :
-        '<table><thead><tr><th>가맹점명</th><th>사업자번호</th><th>주소</th><th>구분</th><th>상태</th><th></th></tr></thead>' +
+      '<div style="margin-bottom:14px;position:relative;">' +
+        '<input id="merchant-search" class="form-input" placeholder="🔍 가맹점명, 사업자번호, 주소 검색..." value="' + (window._merchantSearch||'') + '" ' +
+        'oninput="window._merchantSearch=this.value;renderMerchantTable()" ' +
+        'style="padding-left:14px;"/>' +
+        (window._merchantSearch ? '<button onclick="window._merchantSearch=\'\';document.getElementById(\'merchant-search\').value=\'\';renderMerchantTable()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#aaa;font-size:16px;">✕</button>' : '') +
+      '</div>' +
+      (filtered.length === 0 ? emptyState(q ? '검색 결과가 없습니다.' : '등록된 가맹점이 없습니다.') :
+        '<div style="font-size:12px;color:#888;margin-bottom:8px;">' + (q ? '검색결과 ' + filtered.length + '곳' : '') + '</div>' +
+        '<table><thead><tr><th>가맹점명</th><th>사업자번호</th><th>연락처</th><th>주소</th><th>구분</th><th>상태</th><th></th></tr></thead>' +
         '<tbody id="merchant-list">' + rows + '</tbody></table>') +
       '</div>';
-  } catch(e) { document.getElementById('content').innerHTML = dbError(e); }
 }
 
 function merchantStatusBadge(s) {
@@ -928,8 +948,10 @@ function merchantForm(m = {}) {
   return '<div class="form-row">' +
     '<div class="form-group"><label class="form-label">가맹점명 *</label><input id="m-name" class="form-input" value="' + (m.name||'') + '"/></div>' +
     '<div class="form-group"><label class="form-label">사업자번호</label><input id="m-biz" class="form-input" value="' + (m.biz_no||'') + '" placeholder="000-00-00000"/></div>' +
-    '</div><div class="form-group"><label class="form-label">주소</label><input id="m-addr" class="form-input" value="' + (m.address||'') + '"/></div>' +
-    '<div class="form-row">' +
+    '</div><div class="form-row">' +
+    '<div class="form-group"><label class="form-label">연락처</label><input id="m-phone" class="form-input" value="' + (m.phone||'') + '" placeholder="010-0000-0000"/></div>' +
+    '<div class="form-group"><label class="form-label">주소</label><input id="m-addr" class="form-input" value="' + (m.address||'') + '"/></div>' +
+    '</div><div class="form-row">' +
     '<div class="form-group"><label class="form-label">구분</label><select id="m-type" class="form-select">' +
     ['VAN','PG','VAN+PG'].map(s => '<option ' + (m.type===s?'selected':'') + '>' + s + '</option>').join('') +
     '</select></div>' +
@@ -943,19 +965,23 @@ function openAddMerchant() {
   openModal('가맹점 추가', merchantForm(), async () => {
     const name = v('m-name');
     if (!name) return toast('가맹점명을 입력해주세요.', 'error');
-    const { error } = await db.from('merchants').insert({ name, biz_no: v('m-biz'), address: v('m-addr'), type: v('m-type'), status: v('m-status'), note: v('m-note') });
+    const { error } = await db.from('merchants').insert({ name, biz_no: v('m-biz'), phone: v('m-phone'), address: v('m-addr'), type: v('m-type'), status: v('m-status'), note: v('m-note') });
     if (error) return toast('저장 실패: ' + error.message, 'error');
     toast('추가되었습니다.'); closeModal(); renderMerchants();
   });
 }
 
-function editMerchant(id) {
-  const m = (window._merchants||[]).find(x => x.id === id);
-  if (!m) return;
+async function editMerchant(id) {
+  let m = (window._merchants||[]).find(x => x.id === id);
+  if (!m) {
+    const { data } = await db.from('merchants').select('*').eq('id', id).single();
+    m = data;
+  }
+  if (!m) return toast('가맹점 정보를 불러올 수 없습니다.', 'error');
   openModal('가맹점 편집', merchantForm(m), async () => {
     const name = v('m-name');
     if (!name) return toast('가맹점명을 입력해주세요.', 'error');
-    const { error } = await db.from('merchants').update({ name, biz_no: v('m-biz'), address: v('m-addr'), type: v('m-type'), status: v('m-status'), note: v('m-note') }).eq('id', id);
+    const { error } = await db.from('merchants').update({ name, biz_no: v('m-biz'), phone: v('m-phone'), address: v('m-addr'), type: v('m-type'), status: v('m-status'), note: v('m-note') }).eq('id', id);
     if (error) return toast('저장 실패: ' + error.message, 'error');
     toast('수정되었습니다.'); closeModal(); renderMerchants();
   });
@@ -982,7 +1008,7 @@ function viewMerchantNote(id) {
 }
 
 function exportMerchantsExcel() {
-  const data = (window._merchants||[]).map(m => ({ 가맹점명: m.name, 사업자번호: m.biz_no, 주소: m.address, 구분: m.type, 상태: m.status, 메모: m.note }));
+  const data = (window._merchants||[]).map(m => ({ 가맹점명: m.name, 사업자번호: m.biz_no, 연락처: m.phone, 주소: m.address, 구분: m.type, 상태: m.status, 메모: m.note }));
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '가맹점');
