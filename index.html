@@ -1369,18 +1369,14 @@ async function getDeliveryItems() {
 }
 
 function deliveryForm(d = {}) {
-  const merchants = window._merchants || [];
-  const mOpts = merchants.map(m =>
-    '<option value="' + m.id + '" data-name="' + m.name.replace(/"/g,'&quot;') + '" data-addr="' + (m.address||'').replace(/"/g,'&quot;') + '">' + m.name + '</option>'
-  ).join('');
-
-  return '<div class="form-group"><label class="form-label">가맹점 검색</label>' +
-    '<select id="dv-merchant-select" class="form-select" onchange="fillDeliveryMerchant(this)">' +
-    '<option value="">-- 가맹점 선택 (검색) --</option>' + mOpts +
-    '</select></div>' +
+  return '<div class="form-group"><label class="form-label">가맹점 검색 *</label>' +
+    '<div style="position:relative;">' +
+      '<input id="dv-merchant-search" class="form-input" value="' + (d.merchant_name||'') + '" placeholder="가맹점명 입력 후 선택..." autocomplete="off" oninput="searchDeliveryMerchant(this.value)" onblur="setTimeout(()=>hideDropdown(),200)"/>' +
+      '<div id="dv-merchant-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #ddd;border-radius:7px;max-height:200px;overflow-y:auto;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,.12);"></div>' +
+    '</div></div>' +
     '<div class="form-row">' +
-    '<div class="form-group"><label class="form-label">가맹점명 *</label><input id="dv-merchant" class="form-input" value="' + (d.merchant_name||'') + '" placeholder="직접 입력도 가능"/></div>' +
-    '<div class="form-group"><label class="form-label">주소 (자동입력)</label><input id="dv-addr" class="form-input" value="' + (d.merchant_addr||'') + '" placeholder="자동 입력 또는 직접 입력"/></div>' +
+    '<div class="form-group"><label class="form-label">가맹점명 *</label><input id="dv-merchant" class="form-input" value="' + (d.merchant_name||'') + '" placeholder="위에서 선택하거나 직접 입력"/></div>' +
+    '<div class="form-group"><label class="form-label">주소 (자동입력)</label><input id="dv-addr" class="form-input" value="' + (d.merchant_addr||'') + '" placeholder="자동 입력"/></div>' +
     '</div><div class="form-row">' +
     '<div class="form-group"><label class="form-label">품목 *</label><select id="dv-item" class="form-select">' +
     '<option value="">선택</option>' +
@@ -1407,11 +1403,39 @@ function deliveryForm(d = {}) {
     '<div class="form-group"><label class="form-label">메모</label><input id="dv-note" class="form-input" value="' + (d.note||'') + '" placeholder="메모"/></div>';
 }
 
-function fillDeliveryMerchant(sel) {
-  const opt = sel.options[sel.selectedIndex];
-  if (!opt.value) return;
-  document.getElementById('dv-merchant').value = opt.getAttribute('data-name') || '';
-  document.getElementById('dv-addr').value = opt.getAttribute('data-addr') || '';
+function searchDeliveryMerchant(q) {
+  const dd = document.getElementById('dv-merchant-dropdown');
+  if (!q.trim()) { dd.style.display = 'none'; return; }
+  const merchants = window._merchants || [];
+  const filtered = merchants.filter(m =>
+    m.name.toLowerCase().includes(q.toLowerCase()) ||
+    (m.biz_no||'').includes(q)
+  ).slice(0, 10);
+  if (filtered.length === 0) { dd.style.display = 'none'; return; }
+  const items = filtered.map((m, i) => {
+    const div = document.createElement('div');
+    div.style.cssText = 'padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f0ee;';
+    div.innerHTML = '<strong>' + m.name + '</strong><span style="color:#888;font-size:11px;margin-left:8px;">' + (m.biz_no||'') + '</span>';
+    div.onmousedown = () => selectDeliveryMerchant(m);
+    div.onmouseover = () => div.style.background = '#f0fad0';
+    div.onmouseout = () => div.style.background = '';
+    return div;
+  });
+  dd.innerHTML = '';
+  items.forEach(el => dd.appendChild(el));
+  dd.style.display = 'block';
+}
+
+function selectDeliveryMerchant(m) {
+  document.getElementById('dv-merchant-search').value = m.name;
+  document.getElementById('dv-merchant').value = m.name;
+  document.getElementById('dv-addr').value = m.address || '';
+  document.getElementById('dv-merchant-dropdown').style.display = 'none';
+}
+
+function hideDropdown() {
+  const dd = document.getElementById('dv-merchant-dropdown');
+  if (dd) dd.style.display = 'none';
 }
 
 async function openAddDelivery() {
