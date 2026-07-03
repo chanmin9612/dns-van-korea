@@ -1109,7 +1109,13 @@ async function uploadMerchantExcel(input) {
       const more = dataRows.length > 3 ? ' 외 ' + (dataRows.length-3) + '건' : '';
       if (!confirm('총 ' + dataRows.length + '건 업로드 (' + preview + more + '). 계속할까요?')) return;
 
-      toast('업로드 중...', 'success');
+      // 진행 상태 표시
+      const toastEl = document.getElementById('toast');
+      const showProgress = (done, total) => {
+        toastEl.textContent = '업로드 중... ' + done + ' / ' + total + '건';
+        toastEl.className = 'toast show success';
+      };
+      showProgress(0, dataRows.length);
 
       const { data: existing } = await db.from('merchants').select('id, biz_no');
       const normalize = s => String(s||'').replace(/[^0-9]/g,'');
@@ -1145,6 +1151,7 @@ async function uploadMerchantExcel(input) {
           const { error } = await db.from('merchants').insert(payload);
           if (error) errors++; else added++;
         }
+        showProgress(updated + added + errors, dataRows.length);
       }
 
       await renderMerchants();
