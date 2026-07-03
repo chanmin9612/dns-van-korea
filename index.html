@@ -1369,9 +1369,18 @@ async function getDeliveryItems() {
 }
 
 function deliveryForm(d = {}) {
-  return '<div class="form-row">' +
-    '<div class="form-group"><label class="form-label">가맹점명 *</label><input id="dv-merchant" class="form-input" value="' + (d.merchant_name||'') + '" placeholder="가맹점 이름"/></div>' +
-    '<div class="form-group"><label class="form-label">주소</label><input id="dv-addr" class="form-input" value="' + (d.merchant_addr||'') + '" placeholder="주소"/></div>' +
+  const merchants = window._merchants || [];
+  const mOpts = merchants.map(m =>
+    '<option value="' + m.id + '" data-name="' + m.name.replace(/"/g,'&quot;') + '" data-addr="' + (m.address||'').replace(/"/g,'&quot;') + '">' + m.name + '</option>'
+  ).join('');
+
+  return '<div class="form-group"><label class="form-label">가맹점 검색</label>' +
+    '<select id="dv-merchant-select" class="form-select" onchange="fillDeliveryMerchant(this)">' +
+    '<option value="">-- 가맹점 선택 (검색) --</option>' + mOpts +
+    '</select></div>' +
+    '<div class="form-row">' +
+    '<div class="form-group"><label class="form-label">가맹점명 *</label><input id="dv-merchant" class="form-input" value="' + (d.merchant_name||'') + '" placeholder="직접 입력도 가능"/></div>' +
+    '<div class="form-group"><label class="form-label">주소 (자동입력)</label><input id="dv-addr" class="form-input" value="' + (d.merchant_addr||'') + '" placeholder="자동 입력 또는 직접 입력"/></div>' +
     '</div><div class="form-row">' +
     '<div class="form-group"><label class="form-label">품목 *</label><select id="dv-item" class="form-select">' +
     '<option value="">선택</option>' +
@@ -1390,14 +1399,26 @@ function deliveryForm(d = {}) {
     ['우체국 택배','CJ대한통운','로젠택배','비즈원','직접 배송','기타'].map(s => '<option ' + (d.courier===s?'selected':'') + '>' + s + '</option>').join('') +
     '</select></div>' +
     '<div class="form-group"><label class="form-label">운송장 번호</label><input id="dv-tracking" class="form-input" value="' + (d.tracking_no||'') + '" placeholder="운송장 번호"/></div>' +
-    '</div><div class="form-row">' +
+    '</div><div class="form-row3">' +
     '<div class="form-group"><label class="form-label">요금 (원)</label><input id="dv-fee" class="form-input" type="number" value="' + (d.shipping_fee||'') + '" placeholder="예: 7000"/></div>' +
     '<div class="form-group"><label class="form-label">요청일</label><input id="dv-reqdate" class="form-input" type="date" value="' + (d.request_date||today()) + '"/></div>' +
+    '<div class="form-group"><label class="form-label">발송일</label><input id="dv-shipdate" class="form-input" type="date" value="' + (d.shipped_date||'') + '"/></div>' +
     '</div>' +
     '<div class="form-group"><label class="form-label">메모</label><input id="dv-note" class="form-input" value="' + (d.note||'') + '" placeholder="메모"/></div>';
 }
 
-function openAddDelivery() {
+function fillDeliveryMerchant(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt.value) return;
+  document.getElementById('dv-merchant').value = opt.getAttribute('data-name') || '';
+  document.getElementById('dv-addr').value = opt.getAttribute('data-addr') || '';
+}
+
+async function openAddDelivery() {
+  if (!window._merchants || window._merchants.length === 0) {
+    const { data } = await db.from('merchants').select('id, name, address').order('name');
+    window._merchants = (data||[]).slice().sort((a,b) => a.name.localeCompare(b.name,'ko'));
+  }
   openModal('배송 등록', deliveryForm(), async () => {
     const merchant_name = v('dv-merchant');
     const item_name = v('dv-item');
@@ -1406,7 +1427,10 @@ function openAddDelivery() {
       delivery_no: genNo('DEL'), merchant_name, merchant_addr: v('dv-addr'),
       item_name, quantity: v('dv-qty'), status: v('dv-status'), manager: v('dv-manager'),
       courier: v('dv-courier'), tracking_no: v('dv-tracking'),
-      shipping_fee: parseInt(v('dv-fee'))||0, request_date: v('dv-reqdate'), note: v('dv-note')
+      shipping_fee: parseInt(v('dv-fee'))||0,
+      request_date: v('dv-reqdate') || today(),
+      shipped_date: v('dv-shipdate') || null,
+      note: v('dv-note')
     });
     if (error) return toast('저장 실패: ' + error.message, 'error');
     toast('배송이 등록되었습니다.'); closeModal(); renderDelivery();
@@ -1423,7 +1447,10 @@ function openEditDelivery(id) {
       item_name: v('dv-item'), quantity: v('dv-qty'),
       status: v('dv-status'), manager: v('dv-manager'),
       courier: v('dv-courier'), tracking_no: v('dv-tracking'),
-      shipping_fee: parseInt(v('dv-fee'))||0, request_date: v('dv-reqdate'), note: v('dv-note')
+      shipping_fee: parseInt(v('dv-fee'))||0,
+      request_date: v('dv-reqdate') || today(),
+      shipped_date: v('dv-shipdate') || null,
+      note: v('dv-note')
     }).eq('id', id);
     if (error) return toast('저장 실패: ' + error.message, 'error');
     toast('수정되었습니다.'); closeModal();
