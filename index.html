@@ -1450,6 +1450,7 @@ const OPERATION_DATA = {
       { label: '4주차', items: [
         { text: '홈페이지 공개, 검색 등록 (네이버 · 구글)', tag: '', done: false },
         { text: '브랜드 약속 한 문장 확정 → 전 채널 적용', tag: '', done: false },
+        { text: '상표 · 도메인 D-Order 선점 확인 (KIPRIS · 변리사)', tag: 'dorder', done: false },
         { text: '발주점 이하 품목 1차 발주서 작성 · 발주', tag: 'sys', done: false },
         { text: '입고 예정 일정 정리', tag: 'sys', done: false },
         { text: '7월 결산 (재고 · 가맹점 분류 · 이탈방어)', tag: '', done: false },
@@ -1477,6 +1478,8 @@ const OPERATION_DATA = {
         { text: '마케팅 채널 1개 가동 (플레이스/블로그)', tag: 'biz', done: false },
         { text: '재고 잔량 · 발주 리드타임 점검', tag: 'sys', done: false },
         { text: 'F&B 후보 매장 사전 미팅', tag: 'biz', done: false },
+        { text: '토스 · KIS 매출연동 API 문의 발송', tag: 'dorder', done: false },
+        { text: '디오더 F&B 확장 구상 메모 작성', tag: 'dorder', done: false },
         { text: '신규 계약건 설치 · 개통 (SOP대로)', tag: '', done: false },
       ]},
       { label: '4주차', items: [
@@ -1494,24 +1497,28 @@ const OPERATION_DATA = {
       { label: '1주차', items: [
         { text: '소개 · 리퍼럴 인센티브 설계', tag: 'biz', done: false },
         { text: '신규 영업 지속 (10곳/주)', tag: 'urgent', done: false },
-        { text: '디오더 멀티테넌트 설계 — 회원가입 · 로그인 · 매장 분리', tag: 'sys', done: false },
-        { text: '요금제 확정 — 결제 가맹점 할인 · 비가맹점 월 19,900원', tag: 'biz', done: false },
+        { text: '디오더 멀티테넌트 설계 — 회원가입 · 로그인 · 매장 분리', tag: 'dorder', done: false },
+        { text: '요금제 확정 — 결제 가맹점 할인 · 비가맹점 월 19,900원', tag: 'dorder', done: false },
+        { text: '단일 HTML 구조 점검 → 아키텍처 결정', tag: 'dorder', done: false },
       ]},
       { label: '2주차', items: [
-        { text: '토스플레이스 개발자센터 가입 + b2b 제휴 상담', tag: 'sys', done: false },
-        { text: '보안 — 코드 노출 API 키 분리 · 백업 체계', tag: 'sys', done: false },
-        { text: '디오더 범용화: 카페 특화 → 일반 F&B', tag: 'sys', done: false },
-        { text: '셀프 온보딩 흐름 설계', tag: 'sys', done: false },
+        { text: '토스플레이스 개발자센터 가입 + b2b 제휴 상담', tag: 'dorder', done: false },
+        { text: '보안 — 코드 노출 API 키 분리 · 백업 체계', tag: 'dorder', done: false },
+        { text: '디오더 범용화: 카페 특화 → 일반 F&B', tag: 'dorder', done: false },
+        { text: '셀프 온보딩 흐름 설계 (등록 마법사)', tag: 'dorder', done: false },
+        { text: '신규 영업 지속 (10곳/주)', tag: 'urgent', done: false },
       ]},
       { label: '3주차', items: [
         { text: '키오스크 파일럿 설치 합의 · 일정 확정', tag: 'biz', done: false },
-        { text: 'F&B 파일럿 후보 선정 (키오스크 + 디오더)', tag: 'biz', done: false },
-        { text: '디오더 멀티테넌트 개발 착수', tag: 'sys', done: false },
+        { text: '토스 POS Open API 매출연동 데이터 범위 확인', tag: 'dorder', done: false },
+        { text: 'F&B 파일럿 후보 선정 (키오스크 + 디오더)', tag: 'dorder', done: false },
+        { text: '디오더 멀티테넌트 개발 착수 (매장 분리 우선)', tag: 'dorder', done: false },
       ]},
       { label: '4주차', items: [
         { text: '3분기 결산 (가맹점 · 매출 · 이탈률 · 재고)', tag: '', done: false },
-        { text: '디오더 개발 진척 점검', tag: 'sys', done: false },
+        { text: '디오더 개발 진척 점검 (주 1회)', tag: 'dorder', done: false },
         { text: '키오스크 발주 준비', tag: '', done: false },
+        { text: '4분기 계획 · 발주 점검', tag: '', done: false },
       ]},
     ]
   },
@@ -1522,19 +1529,22 @@ const OPERATION_DATA = {
       { label: '1주차', items: [
         { text: '키오스크 발주 · 입고 · 검수', tag: '', done: false },
         { text: '키오스크 설치 · 세팅 (파일럿 매장)', tag: '', done: false },
-        { text: 'KIS · 토스 결제 연동 테스트', tag: 'sys', done: false },
-        { text: '디오더 파일럿 매장 적용 — 매니페스트커피', tag: 'sys', done: false },
+        { text: 'KIS · 토스 결제 연동 테스트', tag: 'dorder', done: false },
+        { text: '토스 POS Open API 매출연동 PoC (손님 매출 → 디오더)', tag: 'dorder', done: false },
+        { text: '디오더 파일럿 매장 적용 — 매니페스트커피 (품목 · 거래처)', tag: 'dorder', done: false },
         { text: '점주 사용법 교육', tag: '', done: false },
       ]},
       { label: '2주차', items: [
-        { text: '파일럿 매장 실결제 검증', tag: 'sys', done: false },
-        { text: '디오더 실사용 피드백 수집', tag: 'biz', done: false },
+        { text: '파일럿 매장 실결제 검증 (승인 · 정산)', tag: 'dorder', done: false },
+        { text: '디오더 실사용 피드백 수집 (인터뷰)', tag: 'dorder', done: false },
         { text: '기본형 → 관리형 업셀 진행', tag: 'biz', done: false },
+        { text: '재고 · 발주 점검', tag: 'sys', done: false },
       ]},
       { label: '3주차', items: [
-        { text: '파일럿 가맹점 밀착 관리', tag: '', done: false },
-        { text: '디오더 버그 · UI 개선 반영', tag: 'sys', done: false },
-        { text: '레퍼런스 케이스 기록', tag: 'biz', done: false },
+        { text: '파일럿 가맹점 밀착 관리 (즉시 대응)', tag: '', done: false },
+        { text: '디오더 버그 · UI 개선 반영', tag: 'dorder', done: false },
+        { text: '레퍼런스 케이스 기록 (전 · 후 · 후기)', tag: 'biz', done: false },
+        { text: '신규 영업 지속 (10곳/주)', tag: 'urgent', done: false },
       ]},
       { label: '4주차', items: [
         { text: '키오스크 가동 현황 · 결제건수 점검', tag: '', done: false },
@@ -1560,12 +1570,16 @@ const OPERATION_DATA = {
       ]},
       { label: '3주차', items: [
         { text: '레퍼런스 기반 홈페이지 · 소개자료 업데이트', tag: '', done: false },
-        { text: '정기결제(구독) 연동 — 비가맹점 월 19,900원 자동청구', tag: 'sys', done: false },
+        { text: '정기결제(구독) 연동 — 비가맹점 월 19,900원 자동청구', tag: 'dorder', done: false },
+        { text: '정기결제 연동 테스트', tag: 'dorder', done: false },
         { text: '마케팅 게시', tag: 'biz', done: false },
       ]},
       { label: '4주차', items: [
-        { text: '디오더 배포 준비 (소개페이지 · 온보딩)', tag: 'sys', done: false },
-        { text: '이용약관 · 개인정보 · 정기결제 약관 준비', tag: '', done: false },
+        { text: '디오더 배포 준비 (소개페이지 · 온보딩)', tag: 'dorder', done: false },
+        { text: '디오더 브랜드 적용 (로고 · 컬러 · 명함 · 앱 아이콘)', tag: 'dorder', done: false },
+        { text: '전자금융업 해당 여부 확인 (구독 · 지급 구조)', tag: 'dorder', done: false },
+        { text: '이용약관 · 개인정보 · 정기결제 약관 준비', tag: 'dorder', done: false },
+        { text: '키오스크 누적 점검 (3~5대)', tag: '', done: false },
         { text: '11월 결산', tag: '', done: false },
       ]},
     ]
@@ -1575,19 +1589,21 @@ const OPERATION_DATA = {
     goal: '런칭 + 첫 유료고객, 월매출 800~1,000만',
     weeks: [
       { label: '1주차', items: [
-        { text: '디오더 발주 관리 시스템 시장 배포', tag: 'urgent', done: false },
-        { text: '배포 후 모니터링 (오류 · 문의 대응)', tag: 'sys', done: false },
+        { text: '[런칭] 디오더 발주 관리 시스템 시장 배포', tag: 'urgent', done: false },
+        { text: '배포 후 모니터링 (오류 · 문의 대응)', tag: 'dorder', done: false },
         { text: '하반기 결산 데이터 집계', tag: '', done: false },
-        { text: '런칭 홍보 (채널 게시 · 지인 안내)', tag: 'biz', done: false },
+        { text: '런칭 홍보 (채널 게시 · 지인 안내) 3건', tag: 'biz', done: false },
       ]},
       { label: '2주차', items: [
         { text: '첫 유료 고객 확보 · 온보딩', tag: 'urgent', done: false },
-        { text: '결제 · 정산 정상 작동 확인', tag: 'sys', done: false },
+        { text: '결제 · 정산 정상 작동 확인', tag: 'dorder', done: false },
+        { text: '키오스크 성과 종합 점검', tag: '', done: false },
         { text: '관리비 수취 가맹점 비율 점검 (목표 50%)', tag: '', done: false },
       ]},
       { label: '3주차', items: [
         { text: '2027 상반기 목표 · 예산 · 발주 계획 수립', tag: '', done: false },
-        { text: '디오더 2027 확장 로드맵 · 백로그 정리', tag: 'sys', done: false },
+        { text: '디오더 2027 확장 로드맵 · 백로그 정리', tag: 'dorder', done: false },
+        { text: '영업 파이프라인 2027년 1월 준비', tag: 'biz', done: false },
         { text: '거래처 · 가맹점 연말 인사', tag: '', done: false },
       ]},
       { label: '4주차', items: [
@@ -1708,7 +1724,8 @@ function renderOperation() {
       const isDone = state[month+'_'+wi+'_'+ii] !== undefined ? state[month+'_'+wi+'_'+ii] : item.done;
       const tagHtml = item.tag === 'sys' ? '<span style="font-size:10px;padding:1px 6px;border-radius:10px;background:#e8ecf5;color:#1F3864;margin-left:4px;">시스템</span>' :
         item.tag === 'biz' ? '<span style="font-size:10px;padding:1px 6px;border-radius:10px;background:#f0fad0;color:#3a6000;margin-left:4px;">영업</span>' :
-        item.tag === 'urgent' ? '<span style="font-size:10px;padding:1px 6px;border-radius:10px;background:#feeaea;color:#b91c1c;margin-left:4px;">긴급</span>' : '';
+        item.tag === 'urgent' ? '<span style="font-size:10px;padding:1px 6px;border-radius:10px;background:#feeaea;color:#b91c1c;margin-left:4px;">긴급</span>' :
+        item.tag === 'dorder' ? '<span style="font-size:10px;padding:1px 6px;border-radius:10px;background:#f3e8ff;color:#6b21a8;margin-left:4px;">디오더</span>' : '';
 
       html += '<div onclick="opToggle(&quot;' + month + '&quot;,' + wi + ',' + ii + ')" style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid #fafaf8;cursor:pointer;">' +
         '<div style="width:16px;height:16px;border:' + (isDone?'none':'1.5px solid #ddd') + ';border-radius:4px;flex-shrink:0;margin-top:1px;background:' + (isDone?'#C6F432':'#fff') + ';display:flex;align-items:center;justify-content:center;">' +
