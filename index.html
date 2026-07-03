@@ -1407,7 +1407,7 @@ function deliveryForm(d = {}) {
     '<div class="form-group"><label class="form-label">담당자</label><input id="dv-manager" class="form-input" value="' + (d.manager||'') + '" placeholder="담당자"/></div>' +
     '</div><div class="form-row">' +
     '<div class="form-group"><label class="form-label">택배사</label><select id="dv-courier" class="form-select"><option value="">선택</option>' +
-    ['우체국 택배','CJ대한통운','로젠택배','비즈원','직접 배송','기타'].map(s => '<option ' + (d.courier===s?'selected':'') + '>' + s + '</option>').join('') +
+    ['한진택배','우체국','직접 배송','기타'].map(s => '<option ' + (d.courier===s?'selected':'') + '>' + s + '</option>').join('') +
     '</select></div>' +
     '<div class="form-group"><label class="form-label">운송장 번호</label><input id="dv-tracking" class="form-input" value="' + (d.tracking_no||'') + '" placeholder="운송장 번호"/></div>' +
     '</div><div class="form-row3">' +
