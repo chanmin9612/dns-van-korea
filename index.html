@@ -927,10 +927,10 @@ function renderMerchantTable() {
       '<div class="card-header"><div class="card-title">가맹점 목록 (' + sorted.length + '곳)</div>' +
       '<div style="display:flex;gap:8px;">' +
         '<button class="btn btn-sm btn-excel" onclick="downloadMerchantTemplate()">📥 양식 다운로드</button>' +
-        '<button class="btn btn-sm" style="color:#7c3aed;border-color:#c4b5fd;background:#fff;" onclick="document.getElementById(\'merchant-upload-input\').click()">📤 엑셀 업로드</button>' +
-        '<input type="file" id="merchant-upload-input" accept=".xlsx,.xls" style="display:none" onchange="uploadMerchantExcel(this)"/>' +
+        '<button class="btn btn-sm" id="upload-btn" style="color:#7c3aed;border-color:#c4b5fd;background:#fff;" onclick="triggerMerchantUpload()">📤 엑셀 업로드</button>' +
         '<button class="btn btn-sm btn-excel" onclick="exportMerchantsExcel()">📊 엑셀 저장</button>' +
       '</div></div>' +
+      '<input type="file" id="merchant-upload-input" accept=".xlsx,.xls" style="display:none" onchange="uploadMerchantExcel(this)"/>' +
       '<div style="margin-bottom:14px;position:relative;">' +
         '<input id="merchant-search" class="form-input" placeholder="🔍 가맹점명, 사업자번호, 주소 검색..." value="' + (window._merchantSearch||'') + '" ' +
         'oninput="window._merchantSearch=this.value;renderMerchantTable()" ' +
@@ -1012,6 +1012,11 @@ function viewMerchantNote(id) {
   document.getElementById('modal-footer').innerHTML = '<button class="btn btn-primary" onclick="closeModal()">닫기</button>';
   _modalSaveFn = null;
   document.getElementById('modal-overlay').classList.add('open');
+}
+
+function triggerMerchantUpload() {
+  const input = document.getElementById('merchant-upload-input');
+  if (input) input.click();
 }
 
 async function uploadMerchantExcel(input) {
