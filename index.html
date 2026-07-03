@@ -895,7 +895,6 @@ async function renderMerchants() {
     window._merchants = (data||[]).slice().sort((a,b) => a.name.localeCompare(b.name,'ko'));
     window._merchantSearch = window._merchantSearch || '';
 
-    // 전체 구조 한번만 그리기
     contentEl.innerHTML =
       '<div class="card">' +
         '<div class="card-header">' +
@@ -914,9 +913,9 @@ async function renderMerchants() {
         '<div id="merchant-table-wrap"></div>' +
       '</div>';
 
-    // 검색 이벤트 연결
+    // 검색 이벤트
     const searchEl = document.getElementById('merchant-search');
-    const clearEl = document.getElementById('merchant-search-clear');
+    const clearEl  = document.getElementById('merchant-search-clear');
     searchEl.value = window._merchantSearch;
     searchEl.addEventListener('input', function() {
       window._merchantSearch = this.value;
@@ -931,17 +930,18 @@ async function renderMerchants() {
     });
 
     renderMerchantRows();
-  } catch(e) { contentEl.innerHTML = dbError(e); }
+  } catch(e) { document.getElementById('content').innerHTML = dbError(e); }
 }
 
 function renderMerchantRows() {
   const q = (window._merchantSearch || '').toLowerCase().trim();
-  const filtered = q ? (window._merchants||[]).filter(m =>
+  const all = window._merchants || [];
+  const filtered = q ? all.filter(m =>
     (m.name||'').toLowerCase().includes(q) ||
     (m.biz_no||'').includes(q) ||
     (m.phone||'').includes(q) ||
     (m.address||'').toLowerCase().includes(q)
-  ) : (window._merchants||[]);
+  ) : all;
 
   const countEl = document.getElementById('merchant-result-count');
   if (countEl) countEl.textContent = q ? '검색결과 ' + filtered.length + '곳' : '';
@@ -970,9 +970,12 @@ function renderMerchantRows() {
         '<button class="btn btn-sm btn-danger" onclick="deleteMerchant(' + m.id + ')">삭제</button>' +
       '</td></tr>';
   });
-  wrap.innerHTML = '<table><thead><tr><th>가맹점명</th><th>사업자번호</th><th>연락처</th><th>주소</th><th>구분</th><th>상태</th><th></th></tr></thead><tbody id="merchant-list">' + rows + '</tbody></table>';
-}
 
+  wrap.innerHTML =
+    '<table><thead><tr>' +
+    '<th>가맹점명</th><th>사업자번호</th><th>연락처</th><th>주소</th><th>구분</th><th>상태</th><th></th>' +
+    '</tr></thead><tbody id="merchant-list">' + rows + '</tbody></table>';
+}
 
 function merchantStatusBadge(s) {
   if (s==='운영중') return '<span class="badge badge-green">운영중</span>';
@@ -1044,6 +1047,15 @@ function viewMerchantNote(id) {
   document.getElementById('modal-overlay').classList.add('open');
 }
 
+function exportMerchantsExcel() {
+  const data = (window._merchants||[]).map(m => ({ 가맹점명: m.name, 사업자번호: m.biz_no, 연락처: m.phone, 주소: m.address, 구분: m.type, 상태: m.status, 메모: m.note }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '가맹점');
+  XLSX.writeFile(wb, '가맹점목록_' + today() + '.xlsx');
+  toast('엑셀 저장 완료');
+}
+
 function triggerMerchantUpload() {
   let input = document.getElementById('merchant-upload-input');
   if (!input) {
@@ -1071,7 +1083,6 @@ async function uploadMerchantExcel(input) {
       const ws = wb.Sheets[wb.SheetNames[0]];
       const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
 
-      // 헤더 행 찾기
       let headerRow = -1;
       for (let i = 0; i < Math.min(raw.length, 10); i++) {
         const row = raw[i].map(c => String(c).replace('*','').trim());
@@ -1089,7 +1100,6 @@ async function uploadMerchantExcel(input) {
         status: headers.indexOf('상태'),
         note:   headers.indexOf('메모'),
       };
-
       if (idx.name === -1 || idx.biz === -1) return toast('가맹점명 또는 사업자번호 컬럼을 찾을 수 없습니다.', 'error');
 
       const dataRows = raw.slice(headerRow + 1).filter(r => r[idx.name] && r[idx.biz]);
@@ -1101,7 +1111,6 @@ async function uploadMerchantExcel(input) {
 
       toast('업로드 중...', 'success');
 
-      // 기존 가맹점 조회 - 사업자번호 정규화해서 매핑
       const { data: existing } = await db.from('merchants').select('id, biz_no');
       const normalize = s => String(s||'').replace(/[^0-9]/g,'');
       const existingMap = {};
@@ -1123,129 +1132,14 @@ async function uploadMerchantExcel(input) {
 
         const payload = {
           name, biz_no, phone, address,
-          type:   validTypes.includes(type)   ? type   : 'VAN',
+          type:   validTypes.includes(type)    ? type   : 'VAN',
           status: validStatus.includes(status) ? status : '운영중',
           note
         };
 
-        const normBiz = normalize(biz_no);
-        const existingId = existingMap[normBiz];
-
+        const existingId = existingMap[normalize(biz_no)];
         if (existingId) {
           const { error } = await db.from('merchants').update(payload).eq('id', existingId);
-          if (error) { console.error('update error:', error, payload); errors++; } else updated++;
-        } else {
-          const { error } = await db.from('merchants').insert(payload);
-          if (error) { console.error('insert error:', error, payload); errors++; } else added++;
-        }
-      }
-
-      await renderMerchants();
-      const msg = '완료! 업데이트 ' + updated + '건 / 추가 ' + added + '건' + (errors > 0 ? ' / 오류 ' + errors + '건 (F12 콘솔 확인)' : '');
-      toast(msg, errors > 0 ? 'error' : 'success');
-    } catch(err) {
-      toast('오류: ' + err.message, 'error');
-      console.error(err);
-    }
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-
-function triggerMerchantUpload() {
-  let input = document.getElementById('merchant-upload-input');
-  if (!input) {
-    input = document.createElement('input');
-    input.type = 'file';
-    input.id = 'merchant-upload-input';
-    input.accept = '.xlsx,.xls';
-    input.style.display = 'none';
-    input.onchange = function() { uploadMerchantExcel(this); };
-    document.body.appendChild(input);
-  }
-  input.value = '';
-  input.click();
-}
-
-async function uploadMerchantExcel(input) {
-  const file = input.files[0];
-  if (!file) return;
-  input.value = '';
-
-  toast('파일 읽는 중...', 'success');
-
-  const reader = new FileReader();
-  reader.onload = async (e) => {
-    try {
-      const wb = XLSX.read(e.target.result, { type: 'array' });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-
-      // 헤더 행 찾기 (가맹점명* 또는 가맹점명 이 있는 행)
-      let headerRow = -1;
-      for (let i = 0; i < Math.min(raw.length, 10); i++) {
-        const row = raw[i].map(c => String(c).replace('*','').trim());
-        if (row.includes('가맹점명') && row.includes('사업자번호')) {
-          headerRow = i;
-          break;
-        }
-      }
-
-      if (headerRow === -1) {
-        return toast('양식 오류: 가맹점명/사업자번호 헤더를 찾을 수 없습니다.', 'error');
-      }
-
-      const headers = raw[headerRow].map(c => String(c).replace('*','').trim());
-      const nameIdx   = headers.findIndex(h => h === '가맹점명');
-      const bizIdx    = headers.findIndex(h => h === '사업자번호');
-      const phoneIdx  = headers.findIndex(h => h === '연락처');
-      const addrIdx   = headers.findIndex(h => h === '주소');
-      const typeIdx   = headers.findIndex(h => h === '구분');
-      const statusIdx = headers.findIndex(h => h === '상태');
-      const noteIdx   = headers.findIndex(h => h === '메모');
-
-      if (nameIdx === -1 || bizIdx === -1) {
-        return toast('가맹점명 또는 사업자번호 컬럼을 찾을 수 없습니다.', 'error');
-      }
-
-      // 데이터 파싱
-      const rows = raw.slice(headerRow + 1).filter(r => r[nameIdx] && r[bizIdx]);
-      if (rows.length === 0) return toast('업로드할 데이터가 없습니다.', 'error');
-
-      // 결과 팝업으로 확인 후 진행
-      const preview = rows.slice(0, 3).map(r => r[nameIdx]).join(', ');
-      const more = rows.length > 3 ? ' 외 ' + (rows.length - 3) + '건' : '';
-      const confirmed = confirm('총 ' + rows.length + '건 업로드 (' + preview + more + '). 계속할까요?');
-
-      toast('업로드 중...', 'success');
-
-      // 기존 가맹점 사업자번호 목록 가져오기
-      const { data: existing } = await db.from('merchants').select('id, biz_no');
-      const existingMap = {};
-      (existing || []).forEach(m => { existingMap[m.biz_no] = m.id; });
-
-      let updated = 0, added = 0, errors = 0;
-
-      for (const row of rows) {
-        const name    = String(row[nameIdx] || '').trim();
-        const biz_no  = String(row[bizIdx] || '').trim();
-        const phone   = phoneIdx  >= 0 ? String(row[phoneIdx]  || '').trim() : '';
-        const address = addrIdx   >= 0 ? String(row[addrIdx]   || '').trim() : '';
-        const type    = typeIdx   >= 0 ? String(row[typeIdx]    || 'VAN').trim() : 'VAN';
-        const status  = statusIdx >= 0 ? String(row[statusIdx]  || '운영중').trim() : '운영중';
-        const note    = noteIdx   >= 0 ? String(row[noteIdx]    || '').trim() : '';
-
-        if (!name || !biz_no) continue;
-
-        const validTypes   = ['VAN','PG','VAN+PG'];
-        const validStatus  = ['운영중','계약중','해지'];
-        const safeType     = validTypes.includes(type) ? type : 'VAN';
-        const safeStatus   = validStatus.includes(status) ? status : '운영중';
-
-        const payload = { name, biz_no, phone, address, type: safeType, status: safeStatus, note };
-
-        if (existingMap[biz_no]) {
-          const { error } = await db.from('merchants').update(payload).eq('id', existingMap[biz_no]);
           if (error) errors++; else updated++;
         } else {
           const { error } = await db.from('merchants').insert(payload);
@@ -1254,10 +1148,9 @@ async function uploadMerchantExcel(input) {
       }
 
       await renderMerchants();
-      toast('완료! 업데이트 ' + updated + '건 / 추가 ' + added + '건' + (errors > 0 ? ' / 오류 ' + errors + '건' : ''), 'success');
-
+      toast('완료! 업데이트 ' + updated + '건 / 추가 ' + added + '건' + (errors > 0 ? ' / 오류 ' + errors + '건' : ''), errors > 0 ? 'error' : 'success');
     } catch(err) {
-      toast('파일 읽기 실패: ' + err.message, 'error');
+      toast('오류: ' + err.message, 'error');
     }
   };
   reader.readAsArrayBuffer(file);
@@ -1265,20 +1158,11 @@ async function uploadMerchantExcel(input) {
 
 function downloadMerchantTemplate() {
   const merchants = window._merchants || [];
-
   const wb = XLSX.utils.book_new();
-
-  // ── 시트1: 가맹점_업데이트 ──
   const ws = XLSX.utils.aoa_to_sheet([]);
-
-  // 셀 직접 지정 방식으로 작성
   const setCell = (ws, addr, val) => { ws[addr] = { v: val, t: 's' }; };
-
-  // 1행: 제목
   setCell(ws, 'A1', '디앤에스밴코리아 — 가맹점 업데이트 양식');
-  // 2행: 안내
   setCell(ws, 'A2', '※ 사업자번호 기준으로 일치하면 업데이트, 새 행이면 추가됩니다. * 표시는 필수 항목입니다.');
-  // 3행: 힌트
   setCell(ws, 'A3', '필수 입력');
   setCell(ws, 'B3', '필수 입력 (기준키) 예: 123-45-67890');
   setCell(ws, 'C3', '예: 010-1234-5678');
@@ -1286,7 +1170,6 @@ function downloadMerchantTemplate() {
   setCell(ws, 'E3', 'VAN / PG / VAN+PG');
   setCell(ws, 'F3', '운영중 / 계약중 / 해지');
   setCell(ws, 'G3', '자유 입력');
-  // 4행: 헤더
   setCell(ws, 'A4', '가맹점명*');
   setCell(ws, 'B4', '사업자번호*');
   setCell(ws, 'C4', '연락처');
@@ -1294,8 +1177,6 @@ function downloadMerchantTemplate() {
   setCell(ws, 'E4', '구분');
   setCell(ws, 'F4', '상태');
   setCell(ws, 'G4', '메모');
-
-  // 5행~: 데이터
   merchants.forEach((m, i) => {
     const r = i + 5;
     setCell(ws, 'A' + r, m.name || '');
@@ -1306,49 +1187,20 @@ function downloadMerchantTemplate() {
     setCell(ws, 'F' + r, m.status || '운영중');
     setCell(ws, 'G' + r, m.note || '');
   });
-
-  // 범위 설정
   ws['!ref'] = 'A1:G' + (merchants.length + 4);
   ws['!cols'] = [{wch:28},{wch:18},{wch:18},{wch:40},{wch:12},{wch:12},{wch:30}];
-  ws['!merges'] = [
-    { s:{r:0,c:0}, e:{r:0,c:6} },
-    { s:{r:1,c:0}, e:{r:1,c:6} },
-  ];
-
+  ws['!merges'] = [{ s:{r:0,c:0}, e:{r:0,c:6} }, { s:{r:1,c:0}, e:{r:1,c:6} }];
   XLSX.utils.book_append_sheet(wb, ws, '가맹점_업데이트');
-
-  // ── 시트2: 입력가이드 ──
   const ws2 = XLSX.utils.aoa_to_sheet([
-    ['입력 가이드', ''],
-    ['', ''],
-    ['[구분] 입력값', ''],
-    ['VAN', 'VAN 단말기 가맹점'],
-    ['PG', 'PG 단말기 가맹점'],
-    ['VAN+PG', 'VAN과 PG 모두 사용'],
-    ['', ''],
-    ['[상태] 입력값', ''],
-    ['운영중', '현재 정상 운영 중'],
-    ['계약중', '계약 진행 중 (미설치)'],
-    ['해지', '계약 해지된 가맹점'],
-    ['', ''],
-    ['[사업자번호] 형식', ''],
-    ['예시', '123-45-67890'],
-    ['주의', '이 값이 기준키입니다. 정확히 입력하세요.'],
+    ['입력 가이드',''],['',''],['[구분] 입력값',''],['VAN','VAN 단말기 가맹점'],
+    ['PG','PG 단말기 가맹점'],['VAN+PG','VAN과 PG 모두 사용'],['',''],
+    ['[상태] 입력값',''],['운영중','현재 정상 운영 중'],['계약중','계약 진행 중'],['해지','계약 해지된 가맹점'],
+    ['',''],['[사업자번호] 형식',''],['예시','123-45-67890'],['주의','이 값이 기준키입니다. 정확히 입력하세요.'],
   ]);
   ws2['!cols'] = [{wch:22},{wch:35}];
   XLSX.utils.book_append_sheet(wb, ws2, '입력가이드');
-
   XLSX.writeFile(wb, '가맹점_업데이트_양식_' + today() + '.xlsx');
   toast('양식이 다운로드되었습니다. (' + merchants.length + '건)');
-}
-
-function exportMerchantsExcel() {
-  const data = (window._merchants||[]).map(m => ({ 가맹점명: m.name, 사업자번호: m.biz_no, 연락처: m.phone, 주소: m.address, 구분: m.type, 상태: m.status, 메모: m.note }));
-  const ws = XLSX.utils.json_to_sheet(data);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, '가맹점');
-  XLSX.writeFile(wb, '가맹점목록_' + today() + '.xlsx');
-  toast('엑셀 저장 완료');
 }
 
 // =============================================
