@@ -940,6 +940,131 @@ async function adjustInventoryStock(itemName, quantityStr, direction) {
 }
 
 // =============================================
+// ORDERS
+// =============================================
+async function renderOrders() {
+  const contentEl = document.getElementById('content');
+  try {
+    const { data, error } = await db.from('orders').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    window._orders = data || [];
+
+    const active = window._orders.filter(o => o.status !== '입고완료');
+    const done = window._orders.filter(o => o.status === '입고완료');
+
+    let html = '<div class="card"><div class="card-header"><div class="card-title">진행 중 발주 (' + active.length + '건)</div></div>';
+    if (active.length === 0) { html += emptyState('진행 중인 발주가 없습니다'); }
+    else {
+      html += '<table><thead><tr><th>업체</th><th>품목</th><th>구분</th><th>수량</th><th>발주일</th><th>입고예정</th><th>상태</th><th></th></tr></thead><tbody>';
+      active.forEach(o => {
+        html += '<tr>' +
+          '<td><span class="badge badge-navy">' + (o.vendor||'-') + '</span></td>' +
+          '<td><strong>' + (o.item_name||'-') + '</strong></td>' +
+          '<td>' + (o.category ? categoryBadge(o.category) : '-') + '</td>' +
+          '<td>' + (o.quantity||'-') + '</td>' +
+          '<td style="color:#888;font-size:12px">' + (o.order_date||'-') + '</td>' +
+          '<td style="color:#888;font-size:12px">' + (o.expected_date||'-') + '</td>' +
+          '<td>' + (o.status==='입고완료'?'<span class="badge badge-green">입고완료</span>':o.status==='배송중'?'<span class="badge badge-amber">배송중</span>':'<span class="badge badge-blue">주문완료</span>') + '</td>' +
+          '<td style="display:flex;gap:4px;">' +
+            '<button class="btn btn-sm" onclick="openEditOrder(' + o.id + ')">편집</button>' +
+            '<button class="btn btn-sm btn-success" onclick="arriveOrder(' + o.id + ')">입고</button>' +
+            '<button class="btn btn-sm btn-danger" onclick="deleteOrder(' + o.id + ')">삭제</button>' +
+          '</td></tr>';
+      });
+      html += '</tbody></table>';
+    }
+    html += '</div>';
+
+    if (done.length > 0) {
+      html += '<div class="card"><div class="card-header"><div class="card-title">입고 완료 (' + done.length + '건)</div></div>';
+      html += '<table><thead><tr><th>업체</th><th>품목</th><th>수량</th><th>입고일</th><th></th></tr></thead><tbody>';
+      done.slice(0,10).forEach(o => {
+        html += '<tr>' +
+          '<td><span class="badge badge-navy">' + (o.vendor||'-') + '</span></td>' +
+          '<td>' + (o.item_name||'-') + '</td>' +
+          '<td>' + (o.quantity||'-') + '</td>' +
+          '<td style="color:#888;font-size:12px">' + (o.arrived_date||'-') + '</td>' +
+          '<td><button class="btn btn-sm btn-danger" onclick="deleteOrder(' + o.id + ')">삭제</button></td>' +
+          '</tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+    contentEl.innerHTML = html;
+  } catch(e) { contentEl.innerHTML = dbError(e); }
+}
+
+function orderForm(o = {}) {
+  return '<div class="form-row">' +
+    '<div class="form-group"><label class="form-label">업체 *</label><select id="or-vendor" class="form-select">' +
+    ['토스','KIS','기타'].map(s => '<option ' + (o.vendor===s?'selected':'') + '>' + s + '</option>').join('') +
+    '</select></div>' +
+    '<div class="form-group"><label class="form-label">구분</label><select id="or-cat" class="form-select"><option value="">선택</option>' +
+    ['단말기','싸인패드','소모품'].map(s => '<option ' + (o.category===s?'selected':'') + '>' + s + '</option>').join('') +
+    '</select></div>' +
+    '</div><div class="form-row">' +
+    '<div class="form-group"><label class="form-label">품목명 *</label><input id="or-item" class="form-input" value="' + (o.item_name||'') + '" placeholder="품목명"/></div>' +
+    '<div class="form-group"><label class="form-label">수량</label><input id="or-qty" class="form-input" type="number" value="' + (o.quantity||1) + '"/></div>' +
+    '</div><div class="form-row">' +
+    '<div class="form-group"><label class="form-label">발주일</label><input id="or-date" class="form-input" type="date" value="' + (o.order_date||today()) + '"/></div>' +
+    '<div class="form-group"><label class="form-label">입고 예정일</label><input id="or-exp" class="form-input" type="date" value="' + (o.expected_date||'') + '"/></div>' +
+    '</div><div class="form-row">' +
+    '<div class="form-group"><label class="form-label">상태</label><select id="or-status" class="form-select">' +
+    ['주문완료','배송중','입고완료'].map(s => '<option ' + (o.status===s?'selected':'') + '>' + s + '</option>').join('') +
+    '</select></div>' +
+    '<div class="form-group"><label class="form-label">메모</label><input id="or-note" class="form-input" value="' + (o.note||'') + '"/></div>' +
+    '</div>';
+}
+
+function openAddOrder() {
+  openModal('발주 등록', orderForm(), async () => {
+    const item_name = v('or-item');
+    if (!item_name) return toast('품목명을 입력해주세요.', 'error');
+    const { error } = await db.from('orders').insert({
+      order_no: genNo('ORD'), vendor: v('or-vendor'), category: v('or-cat'),
+      item_name, quantity: parseInt(v('or-qty'))||1,
+      order_date: v('or-date'), expected_date: v('or-exp'), status: v('or-status'), note: v('or-note')
+    });
+    if (error) return toast('저장 실패: ' + error.message, 'error');
+    toast('발주가 등록되었습니다.'); closeModal(); renderOrders();
+  });
+}
+
+function openEditOrder(id) {
+  const o = (window._orders||[]).find(x => x.id === id);
+  if (!o) return;
+  openModal('발주 편집', orderForm(o), async () => {
+    const { error } = await db.from('orders').update({
+      vendor: v('or-vendor'), category: v('or-cat'), item_name: v('or-item'),
+      quantity: parseInt(v('or-qty'))||1, order_date: v('or-date'),
+      expected_date: v('or-exp'), status: v('or-status'), note: v('or-note')
+    }).eq('id', id);
+    if (error) return toast('저장 실패: ' + error.message, 'error');
+    toast('수정되었습니다.'); closeModal(); renderOrders();
+  });
+}
+
+async function arriveOrder(id) {
+  const o = (window._orders||[]).find(x => x.id === id);
+  const { error } = await db.from('orders').update({ status: '입고완료', arrived_date: today() }).eq('id', id);
+  if (error) return toast('오류', 'error');
+  if (o) await adjustInventoryStock(o.item_name, String(o.quantity), 'in');
+  toast('입고 처리되었습니다. 재고가 자동 반영되었습니다.'); renderOrders();
+}
+
+async function deleteOrder(id) {
+  if (!confirm('이 발주를 삭제할까요?')) return;
+  const { error } = await db.from('orders').delete().eq('id', id);
+  if (error) return toast('삭제 실패', 'error');
+  toast('삭제되었습니다.'); renderOrders();
+}
+
+function categoryBadge(c) {
+  if (c==='단말기') return '<span class="badge badge-navy">단말기</span>';
+  if (c==='싸인패드') return '<span class="badge badge-purple">싸인패드</span>';
+  return '<span class="badge badge-gray">소모품</span>';
+}
+
+// =============================================
 // MERCHANTS
 // =============================================
 async function renderMerchants() {
