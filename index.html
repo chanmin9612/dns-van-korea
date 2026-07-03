@@ -930,7 +930,6 @@ function renderMerchantTable() {
         '<button class="btn btn-sm" id="upload-btn" style="color:#7c3aed;border-color:#c4b5fd;background:#fff;" onclick="triggerMerchantUpload()">📤 엑셀 업로드</button>' +
         '<button class="btn btn-sm btn-excel" onclick="exportMerchantsExcel()">📊 엑셀 저장</button>' +
       '</div></div>' +
-      '<input type="file" id="merchant-upload-input" accept=".xlsx,.xls" style="display:none" onchange="uploadMerchantExcel(this)"/>' +
       '<div style="margin-bottom:14px;position:relative;">' +
         '<input id="merchant-search" class="form-input" placeholder="🔍 가맹점명, 사업자번호, 주소 검색..." value="' + (window._merchantSearch||'') + '" ' +
         'oninput="window._merchantSearch=this.value;renderMerchantTable()" ' +
@@ -1015,8 +1014,18 @@ function viewMerchantNote(id) {
 }
 
 function triggerMerchantUpload() {
-  const input = document.getElementById('merchant-upload-input');
-  if (input) input.click();
+  let input = document.getElementById('merchant-upload-input');
+  if (!input) {
+    input = document.createElement('input');
+    input.type = 'file';
+    input.id = 'merchant-upload-input';
+    input.accept = '.xlsx,.xls';
+    input.style.display = 'none';
+    input.onchange = function() { uploadMerchantExcel(this); };
+    document.body.appendChild(input);
+  }
+  input.value = '';
+  input.click();
 }
 
 async function uploadMerchantExcel(input) {
