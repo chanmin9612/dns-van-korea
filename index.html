@@ -465,7 +465,17 @@ function taskForm(t = {}) {
     '<div class="form-group"><label class="form-label">업무 유형 *</label><select id="tk-type" class="form-select" onchange="updateTaskStatuses()">' +
     ['설치','수리','소모품'].map(s => '<option ' + (t.type===s?'selected':'') + '>' + s + '</option>').join('') +
     '</select></div>' +
-    '<div class="form-group"><label class="form-label">가맹점명 *</label><input id="tk-merchant" class="form-input" value="' + (t.merchant_name||'') + '" placeholder="가맹점 이름"/></div>' +
+    '<div class="form-group"><label class="form-label">가맹점 검색</label>' +
+      '<div style="position:relative;">' +
+        '<input class="form-input" value="' + (t.merchant_name||'') + '" placeholder="가맹점명 입력 후 선택..." autocomplete="off" ' +
+        'oninput="searchMerchantFor(this.value,&apos;tk-m-dd&apos;,&apos;tk-merchant&apos;,&apos;tk-addr&apos;)" ' +
+        'onblur="hideMerchantDropdown(&apos;tk-m-dd&apos;)"/>' +
+        '<div id="tk-m-dd" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #ddd;border-radius:7px;max-height:180px;overflow-y:auto;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,.12);"></div>' +
+      '</div>' +
+    '</div></div>' +
+    '<div class="form-row">' +
+    '<div class="form-group"><label class="form-label">가맹점명 *</label><input id="tk-merchant" class="form-input" value="' + (t.merchant_name||'') + '" placeholder="직접 입력 가능"/></div>' +
+    '<div class="form-group"><label class="form-label">품목명</label><input id="tk-item" class="form-input" value="' + (t.item_name||'') + '" placeholder="단말기명, 소모품명 등"/></div>' +
     '</div><div class="form-row">' +
     '<div class="form-group"><label class="form-label">품목명</label><input id="tk-item" class="form-input" value="' + (t.item_name||'') + '" placeholder="단말기명, 소모품명 등"/></div>' +
     '<div class="form-group"><label class="form-label">업체</label><select id="tk-vendor" class="form-select"><option value="">선택</option>' +
@@ -494,7 +504,11 @@ function updateTaskStatuses() {
   if (sel) sel.innerHTML = statuses.map(s => '<option>' + s + '</option>').join('');
 }
 
-function openAddTask() {
+async function openAddTask() {
+  if (!window._merchants || window._merchants.length === 0) {
+    const { data } = await db.from('merchants').select('id, name, address, biz_no').order('name');
+    window._merchants = (data||[]).slice().sort((a,b) => a.name.localeCompare(b.name,'ko'));
+  }
   openModal('업무 등록', taskForm(), async () => {
     const merchant_name = v('tk-merchant');
     if (!merchant_name) return toast('가맹점명을 입력해주세요.', 'error');
@@ -509,7 +523,11 @@ function openAddTask() {
   });
 }
 
-function openEditTask(id) {
+async function openEditTask(id) {
+  if (!window._merchants || window._merchants.length === 0) {
+    const { data } = await db.from('merchants').select('id, name, address, biz_no').order('name');
+    window._merchants = (data||[]).slice().sort((a,b) => a.name.localeCompare(b.name,'ko'));
+  }
   const t = (window._tasks||[]).find(x => x.id === id);
   if (!t) return;
   openModal('업무 편집', taskForm(t), async () => {
@@ -587,8 +605,15 @@ async function renderCS() {
 function setCSFilter(f) { csFilter = f; renderCS(); }
 
 function csForm(c = {}) {
-  return '<div class="form-row">' +
-    '<div class="form-group"><label class="form-label">가맹점명 *</label><input id="cs-merchant" class="form-input" value="' + (c.merchant_name||'') + '" placeholder="가맹점 이름"/></div>' +
+  return '<div class="form-group"><label class="form-label">가맹점 검색</label>' +
+    '<div style="position:relative;">' +
+      '<input class="form-input" value="' + (c.merchant_name||'') + '" placeholder="가맹점명 입력 후 선택..." autocomplete="off" ' +
+      'oninput="searchMerchantFor(this.value,&apos;cs-m-dd&apos;,&apos;cs-merchant&apos;,&apos;cs-addr&apos;)" ' +
+      'onblur="hideMerchantDropdown(&apos;cs-m-dd&apos;)"/>' +
+      '<div id="cs-m-dd" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #ddd;border-radius:7px;max-height:180px;overflow-y:auto;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,.12);"></div>' +
+    '</div></div>' +
+    '<div class="form-row">' +
+    '<div class="form-group"><label class="form-label">가맹점명 *</label><input id="cs-merchant" class="form-input" value="' + (c.merchant_name||'') + '" placeholder="직접 입력 가능"/></div>' +
     '<div class="form-group"><label class="form-label">연락처</label><input id="cs-contact" class="form-input" value="' + (c.contact||'') + '" placeholder="010-0000-0000"/></div>' +
     '</div><div class="form-row">' +
     '<div class="form-group"><label class="form-label">접수 채널</label><select id="cs-channel" class="form-select">' +
@@ -613,7 +638,11 @@ function csForm(c = {}) {
     '<div class="form-group"><label class="form-label">처리 내용</label><textarea id="cs-resolve" class="form-textarea">' + (c.resolve_desc||'') + '</textarea></div>';
 }
 
-function openAddCS() {
+async function openAddCS() {
+  if (!window._merchants || window._merchants.length === 0) {
+    const { data } = await db.from('merchants').select('id, name, address, biz_no').order('name');
+    window._merchants = (data||[]).slice().sort((a,b) => a.name.localeCompare(b.name,'ko'));
+  }
   openModal('CS 접수', csForm(), async () => {
     const merchant_name = v('cs-merchant');
     const issue_desc = v('cs-desc');
@@ -629,7 +658,11 @@ function openAddCS() {
   });
 }
 
-function openEditCS(id) {
+async function openEditCS(id) {
+  if (!window._merchants || window._merchants.length === 0) {
+    const { data } = await db.from('merchants').select('id, name, address, biz_no').order('name');
+    window._merchants = (data||[]).slice().sort((a,b) => a.name.localeCompare(b.name,'ko'));
+  }
   const c = (window._cs||[]).find(x => x.id === id);
   if (!c) return;
   openModal('CS 편집', csForm(c), async () => {
@@ -1476,6 +1509,45 @@ function selectDeliveryMerchant(m) {
 function hideDropdown() {
   const dd = document.getElementById('dv-merchant-dropdown');
   if (dd) dd.style.display = 'none';
+}
+
+// 공통 가맹점 검색 (CS/업무용)
+function searchMerchantFor(q, dropdownId, nameInputId, addrInputId) {
+  const dd = document.getElementById(dropdownId);
+  if (!dd) return;
+  if (!q.trim()) { dd.style.display = 'none'; return; }
+  const merchants = window._merchants || [];
+  const filtered = merchants.filter(m =>
+    m.name.toLowerCase().includes(q.toLowerCase()) ||
+    (m.biz_no||'').includes(q)
+  ).slice(0, 10);
+  if (filtered.length === 0) { dd.style.display = 'none'; return; }
+  dd.innerHTML = '';
+  filtered.forEach(m => {
+    const div = document.createElement('div');
+    div.style.cssText = 'padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f0ee;';
+    div.innerHTML = '<strong>' + m.name + '</strong><span style="color:#888;font-size:11px;margin-left:8px;">' + (m.biz_no||'') + '</span>';
+    div.onmousedown = () => {
+      const nameEl = document.getElementById(nameInputId);
+      const addrEl = document.getElementById(addrInputId);
+      if (nameEl) nameEl.value = m.name;
+      if (addrEl) addrEl.value = m.address || '';
+      dd.style.display = 'none';
+      const searchEl = dd.previousElementSibling;
+      if (searchEl) searchEl.value = m.name;
+    };
+    div.onmouseover = () => div.style.background = '#f0fad0';
+    div.onmouseout = () => div.style.background = '';
+    dd.appendChild(div);
+  });
+  dd.style.display = 'block';
+}
+
+function hideMerchantDropdown(dropdownId) {
+  setTimeout(() => {
+    const dd = document.getElementById(dropdownId);
+    if (dd) dd.style.display = 'none';
+  }, 200);
 }
 
 async function openAddDelivery() {
