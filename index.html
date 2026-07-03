@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>디앤에스밴코리아 관리 시스템</title>
+<title>DNS. 업무 관리 시스템</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet"/>
@@ -13,17 +13,18 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f0f2f5;color:#1a1a1a;font
 .app{display:flex;height:100vh;}
 
 /* Sidebar */
-.sidebar{width:210px;min-width:210px;background:#16213e;display:flex;flex-direction:column;overflow-y:auto;}
-.sidebar-header{padding:22px 18px 18px;border-bottom:1px solid rgba(255,255,255,.08);}
-.logo-mark{width:36px;height:36px;background:linear-gradient(135deg,#4f8ef7,#1a56d6);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;margin-bottom:11px;}
-.co-name{font-size:13px;font-weight:600;color:#fff;}
-.co-sub{font-size:11px;color:rgba(255,255,255,.38);margin-top:3px;}
-.nav-section{padding:16px 18px 5px;font-size:9px;font-weight:600;color:rgba(255,255,255,.28);letter-spacing:.1em;text-transform:uppercase;}
-.nav-item{display:flex;align-items:center;gap:10px;padding:9px 18px;font-size:13px;color:rgba(255,255,255,.55);cursor:pointer;margin:1px 0;transition:all .12s;}
-.nav-item:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.9);}
-.nav-item.active{background:rgba(79,142,247,.18);color:#4f8ef7;font-weight:500;border-right:2px solid #4f8ef7;}
+.sidebar{width:210px;min-width:210px;background:#1F3864;display:flex;flex-direction:column;overflow-y:auto;}
+.sidebar-header{padding:22px 18px 20px;border-bottom:1px solid rgba(255,255,255,.08);}
+.logo-mark{font-family:Georgia,'Times New Roman',serif;font-size:24px;font-weight:700;color:#fff;letter-spacing:-.5px;line-height:1;margin-bottom:7px;}
+.logo-mark span{color:#C6F432;}
+.co-name{display:none;}
+.co-sub{font-size:11px;color:rgba(255,255,255,.4);margin-top:0;letter-spacing:.01em;}
+.nav-section{padding:14px 18px 4px;font-size:9px;font-weight:600;color:rgba(255,255,255,.22);letter-spacing:.1em;text-transform:uppercase;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 18px;font-size:13px;color:rgba(255,255,255,.48);cursor:pointer;margin:1px 0;transition:all .12s;}
+.nav-item:hover{background:rgba(255,255,255,.05);color:rgba(255,255,255,.75);}
+.nav-item.active{background:rgba(198,244,50,.1);color:#C6F432;font-weight:500;border-right:2px solid #C6F432;}
 .nav-item .icon{font-size:15px;width:18px;text-align:center;}
-.nav-badge{margin-left:auto;background:#e74c3c;color:#fff;font-size:10px;font-weight:600;padding:1px 6px;border-radius:10px;}
+.nav-badge{margin-left:auto;background:#C6F432;color:#1F3864;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;}
 
 /* Main */
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
@@ -37,8 +38,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f0f2f5;color:#1a1a1a;font
 /* Buttons */
 .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;font-size:13px;font-family:inherit;border:1px solid #ddd;border-radius:7px;background:#fff;color:#333;cursor:pointer;transition:all .12s;}
 .btn:hover{background:#f5f5f3;}
-.btn-primary{background:#16213e;color:#fff;border-color:#16213e;}
-.btn-primary:hover{background:#0f1a30;}
+.btn-primary{background:#C6F432;color:#1F3864;border-color:#C6F432;font-weight:600;}
+.btn-primary:hover{background:#b5e020;}
 .btn-sm{padding:4px 10px;font-size:12px;}
 .btn-danger{border-color:#fca5a5;color:#b91c1c;}
 .btn-danger:hover{background:#fff5f5;}
@@ -49,15 +50,16 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f0f2f5;color:#1a1a1a;font
 /* Cards */
 .card{background:#fff;border:1px solid #e8e8e4;border-radius:10px;padding:18px;margin-bottom:16px;}
 .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
-.card-title{font-size:14px;font-weight:600;}
+.card-title{font-size:14px;font-weight:600;color:#1F3864;display:flex;align-items:center;gap:7px;}
+.card-title::before{content:'';width:3px;height:14px;background:#C6F432;border-radius:2px;display:inline-block;}
 
 /* Metrics */
 .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
-.metric{background:#fff;border:1px solid #e8e8e4;border-radius:10px;padding:16px;}
+.metric{background:#fff;border:1px solid #e8e8e4;border-top:3px solid #C6F432;border-radius:10px;padding:16px;}
 .metric-label{font-size:11px;color:#888;margin-bottom:8px;font-weight:500;}
-.metric-value{font-size:22px;font-weight:600;color:#1a1a1a;}
+.metric-value{font-size:22px;font-weight:600;color:#1F3864;}
 .metric-sub{font-size:11px;color:#aaa;margin-top:4px;}
-.metric.alert{border-color:#fca5a5;background:#fff5f5;}
+.metric.alert{border-color:#fca5a5;background:#fff5f5;border-top-color:#fca5a5;}
 .metric.alert .metric-value{color:#b91c1c;}
 
 /* Table */
@@ -90,7 +92,7 @@ tbody tr:hover td{background:#fafaf8;}
 .form-group{margin-bottom:14px;}
 .form-label{display:block;font-size:12px;color:#666;margin-bottom:5px;font-weight:500;}
 .form-input,.form-select,.form-textarea{width:100%;padding:8px 11px;font-size:13px;font-family:inherit;border:1px solid #ddd;border-radius:7px;background:#fff;color:#1a1a1a;outline:none;transition:border-color .12s;}
-.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:#16213e;}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:#1F3864;}
 .form-textarea{min-height:72px;resize:vertical;}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 .form-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
@@ -145,9 +147,8 @@ tbody tr:hover td{background:#fafaf8;}
 <!-- Sidebar -->
 <nav class="sidebar">
   <div class="sidebar-header">
-    <div class="logo-mark">D&S</div>
-    <div class="co-name">디앤에스밴코리아</div>
-    <div class="co-sub">VAN/PG 관리 시스템</div>
+    <div class="logo-mark">DNS<span>.</span></div>
+    <div class="co-sub">업무 관리 시스템</div>
   </div>
   <div class="nav-section">메인</div>
   <div class="nav-item active" data-page="dashboard"><span class="icon">📊</span>대시보드</div>
