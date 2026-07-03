@@ -318,17 +318,18 @@ function categoryBadge(c) {
 // =============================================
 async function renderDashboard() {
   try {
-    const [{ data: tasks }, { data: cs }, { data: inv }, { data: orders }] = await Promise.all([
+    const [{ data: tasks }, { data: cs }, { data: devices }, { data: supplies }, { data: orders }] = await Promise.all([
       db.from('tasks').select('*'),
       db.from('cs_tickets').select('*'),
-      db.from('inventory').select('*'),
+      db.from('inventory_device').select('*'),
+      db.from('inventory_supply').select('*'),
       db.from('orders').select('*').order('created_at', { ascending: false }).limit(5),
     ]);
 
     const activeTasks = (tasks||[]).filter(t => t.status !== '완료');
     const urgentCS = (cs||[]).filter(c => c.status !== '완료' && c.priority === '긴급');
     const openCS = (cs||[]).filter(c => c.status !== '완료');
-    const lowStock = (inv||[]).filter(i => i.stock <= i.min_stock);
+    const lowStock = (supplies||[]).filter(s => s.stock <= s.min_stock);
 
     // 배지 업데이트
     document.getElementById('badge-tasks').textContent = activeTasks.length;
@@ -342,7 +343,7 @@ async function renderDashboard() {
     let html = '<div class="metrics">' +
       '<div class="metric"><div class="metric-label">진행 중 업무</div><div class="metric-value">' + activeTasks.length + '</div><div class="metric-sub">설치 ' + install + ' · 수리 ' + repair + ' · 소모품 ' + supply + '</div></div>' +
       '<div class="metric ' + (urgentCS.length>0?'alert':'') + '"><div class="metric-label">미처리 CS</div><div class="metric-value">' + openCS.length + '</div><div class="metric-sub">긴급 ' + urgentCS.length + '건</div></div>' +
-      '<div class="metric ' + (lowStock.length>0?'alert':'') + '"><div class="metric-label">재고 부족 품목</div><div class="metric-value">' + lowStock.length + '</div><div class="metric-sub">최소재고 이하</div></div>' +
+      '<div class="metric ' + (lowStock.length>0?'alert':'') + '"><div class="metric-label">소모품 재고 부족</div><div class="metric-value">' + lowStock.length + '</div><div class="metric-sub">안전재고 이하</div></div>' +
       '<div class="metric"><div class="metric-label">이번 달</div><div class="metric-value">' + thisMonth() + '</div><div class="metric-sub">기준</div></div>' +
       '</div>';
 
