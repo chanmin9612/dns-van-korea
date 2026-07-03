@@ -155,6 +155,8 @@ tbody tr:hover td{background:#fafaf8;}
   <div class="nav-section">업무</div>
   <div class="nav-item" data-page="tasks"><span class="icon">📋</span>업무 현황<span class="nav-badge" id="badge-tasks">0</span></div>
   <div class="nav-item" data-page="cs"><span class="icon">🎧</span>CS 관리<span class="nav-badge" id="badge-cs">0</span></div>
+  <div class="nav-section">운영 계획</div>
+  <div class="nav-item" data-page="operation"><span class="icon">📅</span>운영 계획</div>
   <div class="nav-section">배송</div>
   <div class="nav-item" data-page="delivery"><span class="icon">🚚</span>배송 현황<span class="nav-badge" id="badge-delivery">0</span></div>
   <div class="nav-item" data-page="delivery-history"><span class="icon">📬</span>배송 이력</div>
@@ -212,6 +214,7 @@ const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const pageConfig = {
   dashboard: { title: '대시보드', addBtn: null },
   tasks:     { title: '업무 현황', addBtn: { label: '업무 등록', fn: () => openAddTask() } },
+  operation: { title: '운영 계획 — 2026 하반기', addBtn: null },
   cs:        { title: 'CS 관리',  addBtn: { label: 'CS 접수',   fn: () => openAddCS() } },
   delivery:  { title: '배송 현황', addBtn: { label: '배송 등록', fn: () => openAddDelivery() } },
   'delivery-history': { title: '배송 이력', addBtn: { label: '배송 등록', fn: () => openAddDelivery() } },
@@ -242,7 +245,7 @@ function loadPage(page) {
     actions.appendChild(btn);
   }
   document.getElementById('content').innerHTML = '<div class="loading">⏳ 불러오는 중...</div>';
-  const renderers = { dashboard: renderDashboard, tasks: renderTasks, cs: renderCS,
+  const renderers = { dashboard: renderDashboard, tasks: renderTasks, cs: renderCS, operation: renderOperation,
     delivery: renderDelivery, 'delivery-history': renderDeliveryHistory,
     inventory: renderInventory, orders: renderOrders, merchants: renderMerchants, revenue: renderRevenue };
   renderers[page]();
@@ -399,8 +402,29 @@ async function renderTasks() {
     if (error) throw error;
     window._tasks = data || [];
 
+    // 이번 주 운영 계획 할 일
+    const thisWeekOp = getThisWeekTasks();
+    let html = '';
+    if (thisWeekOp.length > 0) {
+      html += '<div style="background:#fff;border:1.5px solid #C6F432;border-radius:10px;padding:14px;margin-bottom:14px;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+          '<div style="font-size:13px;font-weight:600;color:#1F3864;">📅 이번 주 운영 계획</div>' +
+          '<a href="#" onclick="loadPage(&quot;operation&quot;);return false;" style="font-size:11px;color:#888;text-decoration:none;">전체 보기 →</a>' +
+        '</div>';
+      thisWeekOp.slice(0,4).forEach(item => {
+        html += '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #fafaf8;">' +
+          '<div style="width:6px;height:6px;border-radius:50%;background:#C6F432;flex-shrink:0;"></div>' +
+          '<div style="font-size:12px;color:#333;">' + item.text + '</div>' +
+        '</div>';
+      });
+      if (thisWeekOp.length > 4) {
+        html += '<div style="font-size:11px;color:#888;text-align:center;padding-top:6px;">외 ' + (thisWeekOp.length-4) + '건 더보기</div>';
+      }
+      html += '</div>';
+    }
+
     const types = ['전체','설치','수리','소모품'];
-    let html = '<div class="type-tabs">' + types.map(t =>
+    html += '<div class="type-tabs">' + types.map(t =>
       '<div class="type-tab ' + (taskFilter===t?'active':'') + '" onclick="setTaskFilter(\'' + t + '\')">' + t + '</div>'
     ).join('') + '</div>';
 
@@ -1388,6 +1412,374 @@ function downloadMerchantTemplate() {
   XLSX.utils.book_append_sheet(wb, ws2, '입력가이드');
   XLSX.writeFile(wb, '가맹점_업데이트_양식_' + today() + '.xlsx');
   toast('양식이 다운로드되었습니다. (' + merchants.length + '건)');
+}
+
+
+// =============================================
+// OPERATION PLAN
+// =============================================
+const OPERATION_DATA = {
+  '7월': {
+    theme: '사무실 · 시스템 · 재고 기반 구축',
+    goal: '재고 · 가맹점 실사 100%, 시스템 · 홈페이지 공개',
+    weeks: [
+      { label: '1주차', items: [
+        { text: '새 사무실 인터넷 · 전화 개통', tag: '', done: true },
+        { text: '택배 · 배송 세팅', tag: '', done: true },
+        { text: '책상 · PC · 사무 집기 세팅', tag: '', done: false },
+        { text: '단말기 재고 전수 카운트 (모델 · 수량 · 상태)', tag: 'sys', done: false },
+        { text: '부자재 재고 카운트 (용지 · 전원 · 케이블)', tag: 'sys', done: true },
+        { text: 'DNS 시스템 재고 모듈에 결과 입력 시작', tag: 'sys', done: true },
+        { text: '가맹점 리스트 1차 취합', tag: '', done: true },
+      ]},
+      { label: '2주차', items: [
+        { text: '재고 입력 완료 + 불량 · 수리 대상 표기', tag: 'sys', done: true },
+        { text: '모델별 안전재고 · 발주점 설정', tag: 'sys', done: false },
+        { text: '가맹점 전수 실사 (단말기 · VAN · 결제규모)', tag: '', done: false },
+        { text: '활성 · 휴면 · 이탈위험 분류, DNS 태그', tag: '', done: false },
+        { text: 'DNS 결제 마진율 확인 (토스 · KIS 정산 기준)', tag: '', done: true },
+        { text: '이탈위험 명단 추출 (결제 끊긴 곳)', tag: 'urgent', done: false },
+      ]},
+      { label: '3주차', items: [
+        { text: 'DNS 가맹점 · 정산 모듈 점검 · 버그 수정', tag: 'sys', done: false },
+        { text: '실데이터로 대시보드 작동 검증', tag: 'sys', done: false },
+        { text: '홈페이지 잔여 페이지 마무리', tag: '', done: false },
+        { text: '문의 폼 → 알림 연결 테스트', tag: '', done: false },
+        { text: '이탈위험 가맹점 직접 전화 · 방문 시작', tag: 'urgent', done: false },
+      ]},
+      { label: '4주차', items: [
+        { text: '홈페이지 공개, 검색 등록 (네이버 · 구글)', tag: '', done: false },
+        { text: '브랜드 약속 한 문장 확정 → 전 채널 적용', tag: '', done: false },
+        { text: '발주점 이하 품목 1차 발주서 작성 · 발주', tag: 'sys', done: false },
+        { text: '입고 예정 일정 정리', tag: 'sys', done: false },
+        { text: '7월 결산 (재고 · 가맹점 분류 · 이탈방어)', tag: '', done: false },
+      ]},
+    ]
+  },
+  '8월': {
+    theme: '운영 체계 가동 (발주·배송·설치 표준화 + 영업)',
+    goal: '신규 컨택 주 10곳, 신규 계약 2~3건',
+    weeks: [
+      { label: '1주차', items: [
+        { text: '발주→입고검수→배송→설치→개통→DNS등록 SOP 작성', tag: '', done: false },
+        { text: '설치 키트 표준 구성 정의 (단말기 · 서류 세트)', tag: '', done: false },
+        { text: '3단 상품(기본/관리형/무인형) 소개서 제작', tag: 'biz', done: false },
+        { text: '가격표 · 견적 양식 확정', tag: 'biz', done: false },
+        { text: 'CS 단일 창구(카톡/전화) 개설 + 응대 멘트', tag: '', done: false },
+      ]},
+      { label: '2주차', items: [
+        { text: '주간 신규 영업 목표 설정 (주 10곳)', tag: 'biz', done: false },
+        { text: '영업 리스트업 (인근 · 지인 · 소개) 40곳', tag: 'biz', done: false },
+        { text: '신규 영업 컨택 시작', tag: 'urgent', done: false },
+        { text: '기존 가맹점 관리형 전환 후보 추출 · 제안', tag: 'biz', done: false },
+      ]},
+      { label: '3주차', items: [
+        { text: '마케팅 채널 1개 가동 (플레이스/블로그)', tag: 'biz', done: false },
+        { text: '재고 잔량 · 발주 리드타임 점검', tag: 'sys', done: false },
+        { text: 'F&B 후보 매장 사전 미팅', tag: 'biz', done: false },
+        { text: '신규 계약건 설치 · 개통 (SOP대로)', tag: '', done: false },
+      ]},
+      { label: '4주차', items: [
+        { text: '신규 영업 진척 점검 (컨택→상담→계약)', tag: 'biz', done: false },
+        { text: 'CS 응대 누락 주간 점검', tag: '', done: false },
+        { text: '재고 · 발주 잔량 점검', tag: 'sys', done: false },
+        { text: '8월 결산 (신규 5곳↑)', tag: '', done: false },
+      ]},
+    ]
+  },
+  '9월': {
+    theme: '영업 확장 & 디오더 멀티테넌트 전환',
+    goal: '멀티테넌트 착수, 파일럿 후보 1~2곳, 매출 600~700만',
+    weeks: [
+      { label: '1주차', items: [
+        { text: '소개 · 리퍼럴 인센티브 설계', tag: 'biz', done: false },
+        { text: '신규 영업 지속 (10곳/주)', tag: 'urgent', done: false },
+        { text: '디오더 멀티테넌트 설계 — 회원가입 · 로그인 · 매장 분리', tag: 'sys', done: false },
+        { text: '요금제 확정 — 결제 가맹점 할인 · 비가맹점 월 19,900원', tag: 'biz', done: false },
+      ]},
+      { label: '2주차', items: [
+        { text: '토스플레이스 개발자센터 가입 + b2b 제휴 상담', tag: 'sys', done: false },
+        { text: '보안 — 코드 노출 API 키 분리 · 백업 체계', tag: 'sys', done: false },
+        { text: '디오더 범용화: 카페 특화 → 일반 F&B', tag: 'sys', done: false },
+        { text: '셀프 온보딩 흐름 설계', tag: 'sys', done: false },
+      ]},
+      { label: '3주차', items: [
+        { text: '키오스크 파일럿 설치 합의 · 일정 확정', tag: 'biz', done: false },
+        { text: 'F&B 파일럿 후보 선정 (키오스크 + 디오더)', tag: 'biz', done: false },
+        { text: '디오더 멀티테넌트 개발 착수', tag: 'sys', done: false },
+      ]},
+      { label: '4주차', items: [
+        { text: '3분기 결산 (가맹점 · 매출 · 이탈률 · 재고)', tag: '', done: false },
+        { text: '디오더 개발 진척 점검', tag: 'sys', done: false },
+        { text: '키오스크 발주 준비', tag: '', done: false },
+      ]},
+    ]
+  },
+  '10월': {
+    theme: 'F&B 파일럿 가동 (키오스크 + 디오더)',
+    goal: '키오스크 1~2대 + 디오더 파일럿 1곳',
+    weeks: [
+      { label: '1주차', items: [
+        { text: '키오스크 발주 · 입고 · 검수', tag: '', done: false },
+        { text: '키오스크 설치 · 세팅 (파일럿 매장)', tag: '', done: false },
+        { text: 'KIS · 토스 결제 연동 테스트', tag: 'sys', done: false },
+        { text: '디오더 파일럿 매장 적용 — 매니페스트커피', tag: 'sys', done: false },
+        { text: '점주 사용법 교육', tag: '', done: false },
+      ]},
+      { label: '2주차', items: [
+        { text: '파일럿 매장 실결제 검증', tag: 'sys', done: false },
+        { text: '디오더 실사용 피드백 수집', tag: 'biz', done: false },
+        { text: '기본형 → 관리형 업셀 진행', tag: 'biz', done: false },
+      ]},
+      { label: '3주차', items: [
+        { text: '파일럿 가맹점 밀착 관리', tag: '', done: false },
+        { text: '디오더 버그 · UI 개선 반영', tag: 'sys', done: false },
+        { text: '레퍼런스 케이스 기록', tag: 'biz', done: false },
+      ]},
+      { label: '4주차', items: [
+        { text: '키오스크 가동 현황 · 결제건수 점검', tag: '', done: false },
+        { text: '재고 · 발주 점검', tag: 'sys', done: false },
+        { text: '10월 결산', tag: '', done: false },
+      ]},
+    ]
+  },
+  '11월': {
+    theme: 'F&B 확장 & 디오더 제품 완성도',
+    goal: 'F&B 가맹점 2~3곳, 키오스크 누적 3~5대',
+    weeks: [
+      { label: '1주차', items: [
+        { text: '파일럿 성과 측정 (결제 · 절감시간 · 만족도)', tag: 'biz', done: false },
+        { text: '성과 영업 자료화 (한 장 소개)', tag: 'biz', done: false },
+        { text: '디오더 완성도 점검 (안정성 · 결제 · 알림)', tag: 'sys', done: false },
+        { text: '데이터 백업 체계 설정', tag: 'sys', done: false },
+      ]},
+      { label: '2주차', items: [
+        { text: '추가 키오스크 발주 · 설치', tag: '', done: false },
+        { text: 'F&B 가맹점 디오더 추가 적용 (2~3곳)', tag: 'biz', done: false },
+        { text: '멀티 매장 동시 운영 안정성 테스트', tag: 'sys', done: false },
+      ]},
+      { label: '3주차', items: [
+        { text: '레퍼런스 기반 홈페이지 · 소개자료 업데이트', tag: '', done: false },
+        { text: '정기결제(구독) 연동 — 비가맹점 월 19,900원 자동청구', tag: 'sys', done: false },
+        { text: '마케팅 게시', tag: 'biz', done: false },
+      ]},
+      { label: '4주차', items: [
+        { text: '디오더 배포 준비 (소개페이지 · 온보딩)', tag: 'sys', done: false },
+        { text: '이용약관 · 개인정보 · 정기결제 약관 준비', tag: '', done: false },
+        { text: '11월 결산', tag: '', done: false },
+      ]},
+    ]
+  },
+  '12월': {
+    theme: '디오더 시장 배포 & 하반기 결산',
+    goal: '런칭 + 첫 유료고객, 월매출 800~1,000만',
+    weeks: [
+      { label: '1주차', items: [
+        { text: '디오더 발주 관리 시스템 시장 배포', tag: 'urgent', done: false },
+        { text: '배포 후 모니터링 (오류 · 문의 대응)', tag: 'sys', done: false },
+        { text: '하반기 결산 데이터 집계', tag: '', done: false },
+        { text: '런칭 홍보 (채널 게시 · 지인 안내)', tag: 'biz', done: false },
+      ]},
+      { label: '2주차', items: [
+        { text: '첫 유료 고객 확보 · 온보딩', tag: 'urgent', done: false },
+        { text: '결제 · 정산 정상 작동 확인', tag: 'sys', done: false },
+        { text: '관리비 수취 가맹점 비율 점검 (목표 50%)', tag: '', done: false },
+      ]},
+      { label: '3주차', items: [
+        { text: '2027 상반기 목표 · 예산 · 발주 계획 수립', tag: '', done: false },
+        { text: '디오더 2027 확장 로드맵 · 백로그 정리', tag: 'sys', done: false },
+        { text: '거래처 · 가맹점 연말 인사', tag: '', done: false },
+      ]},
+      { label: '4주차', items: [
+        { text: 'DNS 시스템 고도화 항목 정리', tag: 'sys', done: false },
+        { text: '하반기 회고 (잘된 것 · 막힌 것)', tag: '', done: false },
+        { text: '사무실 · 재고 연말 정리', tag: '', done: false },
+      ]},
+    ]
+  },
+};
+
+// localStorage 키
+const OP_STORAGE_KEY = 'dns_operation_checklist';
+
+function opLoadState() {
+  try { return JSON.parse(localStorage.getItem(OP_STORAGE_KEY) || '{}'); } catch(e) { return {}; }
+}
+function opSaveState(state) {
+  try { localStorage.setItem(OP_STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+}
+function opToggle(month, weekIdx, itemIdx) {
+  const state = opLoadState();
+  const key = month + '_' + weekIdx + '_' + itemIdx;
+  state[key] = !state[key];
+  opSaveState(state);
+  renderOperation();
+}
+
+// 현재 월 계산
+function getCurrentMonth() {
+  const months = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  return months[new Date().getMonth()];
+}
+
+// 이번 주 할 일 가져오기 (업무 현황 연동용)
+function getThisWeekTasks() {
+  const month = window._opCurrentMonth || getCurrentMonth();
+  const data = OPERATION_DATA[month];
+  if (!data) return [];
+  const state = opLoadState();
+  // 현재 주차 계산 (간단히 날짜 기준)
+  const day = new Date().getDate();
+  const weekIdx = Math.min(Math.floor((day-1)/7), data.weeks.length-1);
+  const week = data.weeks[weekIdx];
+  if (!week) return [];
+  return week.items.map((item, i) => ({
+    ...item,
+    done: state[month + '_' + weekIdx + '_' + i] !== undefined ? state[month + '_' + weekIdx + '_' + i] : item.done,
+    weekLabel: week.label,
+    month
+  })).filter(item => !item.done);
+}
+
+let _opCurrentMonth = null;
+
+function renderOperation() {
+  const contentEl = document.getElementById('content');
+  const months = ['7월','8월','9월','10월','11월','12월'];
+  const curMonth = _opCurrentMonth || getCurrentMonth();
+  if (!months.includes(curMonth)) _opCurrentMonth = '7월';
+  const month = _opCurrentMonth || '7월';
+  const data = OPERATION_DATA[month];
+  const state = opLoadState();
+
+  // 탭
+  let html = '<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">';
+  months.forEach(m => {
+    const mData = OPERATION_DATA[m];
+    const total = mData.weeks.reduce((s,w)=>s+w.items.length,0);
+    const done = mData.weeks.reduce((s,w,wi)=>s+w.items.filter((_,ii)=>state[m+'_'+wi+'_'+ii]!==undefined?state[m+'_'+wi+'_'+ii]:false).length,0);
+    const isActive = m === month;
+    const isCurrent = m === getCurrentMonth();
+    html += '<div onclick="setOpMonth(&quot;' + m + '&quot;)" style="padding:5px 14px;border-radius:20px;font-size:12px;cursor:pointer;border:' +
+      (isActive ? '2px solid #1F3864;background:#1F3864;color:#fff;' : isCurrent ? '2px solid #C6F432;background:#fff;color:#1F3864;font-weight:600;' : '1px solid #e8e8e4;background:#fff;color:#888;') + '">' +
+      m + (done > 0 ? ' (' + done + '/' + total + ')' : '') + '</div>';
+  });
+  html += '</div>';
+
+  // 목표 배너
+  html += '<div style="background:#1F3864;border-radius:10px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;">' +
+    '<div>' +
+      '<div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:3px;">' + month + ' 핵심 테마</div>' +
+      '<div style="font-size:13px;font-weight:600;color:#fff;">' + data.theme + '</div>' +
+      '<div style="font-size:11px;color:#C6F432;margin-top:4px;">목표: ' + data.goal + '</div>' +
+    '</div>';
+
+  // 진행률
+  const allTotal = data.weeks.reduce((s,w)=>s+w.items.length,0);
+  const allDone  = data.weeks.reduce((s,w,wi)=>s+w.items.filter((_,ii)=>state[month+'_'+wi+'_'+ii]!==undefined?state[month+'_'+wi+'_'+ii]:data.weeks[wi].items[ii].done).length,0);
+  const pct = allTotal > 0 ? Math.round(allDone/allTotal*100) : 0;
+  html += '<div style="text-align:right;">' +
+    '<div style="font-size:22px;font-weight:700;color:#C6F432;">' + pct + '%</div>' +
+    '<div style="font-size:10px;color:rgba(255,255,255,.5);">' + allDone + ' / ' + allTotal + ' 완료</div>' +
+    '<div style="width:80px;height:4px;background:rgba(255,255,255,.2);border-radius:2px;margin-top:6px;">' +
+      '<div style="width:' + pct + '%;height:4px;background:#C6F432;border-radius:2px;"></div>' +
+    '</div>' +
+  '</div></div>';
+
+  html += '<div style="display:grid;grid-template-columns:1fr 300px;gap:14px;">';
+  html += '<div>'; // 왼쪽: 주차별 체크리스트
+
+  data.weeks.forEach((week, wi) => {
+    const wDone = week.items.filter((_,ii)=>{
+      const s = state[month+'_'+wi+'_'+ii];
+      return s !== undefined ? s : week.items[ii].done;
+    }).length;
+    const wAll = week.items.length;
+    const allWeekDone = wDone === wAll;
+
+    html += '<div class="card" style="margin-bottom:12px;">';
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+      '<div style="font-size:12px;font-weight:600;color:#1F3864;">' + week.label + (allWeekDone ? ' ✅' : '') + '</div>' +
+      '<span style="font-size:11px;color:#888;">' + wDone + ' / ' + wAll + '</span>' +
+    '</div>';
+    html += '<div style="height:3px;background:#f0f0ee;border-radius:2px;margin-bottom:10px;"><div style="height:3px;width:' + Math.round(wDone/wAll*100) + '%;background:#C6F432;border-radius:2px;"></div></div>';
+
+    week.items.forEach((item, ii) => {
+      const isDone = state[month+'_'+wi+'_'+ii] !== undefined ? state[month+'_'+wi+'_'+ii] : item.done;
+      const tagHtml = item.tag === 'sys' ? '<span style="font-size:10px;padding:1px 6px;border-radius:10px;background:#e8ecf5;color:#1F3864;margin-left:4px;">시스템</span>' :
+        item.tag === 'biz' ? '<span style="font-size:10px;padding:1px 6px;border-radius:10px;background:#f0fad0;color:#3a6000;margin-left:4px;">영업</span>' :
+        item.tag === 'urgent' ? '<span style="font-size:10px;padding:1px 6px;border-radius:10px;background:#feeaea;color:#b91c1c;margin-left:4px;">긴급</span>' : '';
+
+      html += '<div onclick="opToggle(&quot;' + month + '&quot;,' + wi + ',' + ii + ')" style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid #fafaf8;cursor:pointer;">' +
+        '<div style="width:16px;height:16px;border:' + (isDone?'none':'1.5px solid #ddd') + ';border-radius:4px;flex-shrink:0;margin-top:1px;background:' + (isDone?'#C6F432':'#fff') + ';display:flex;align-items:center;justify-content:center;">' +
+          (isDone ? '<svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#1F3864" stroke-width="1.8" fill="none"/></svg>' : '') +
+        '</div>' +
+        '<div style="font-size:12px;color:' + (isDone?'#aaa':'#333') + ';text-decoration:' + (isDone?'line-through':'none') + ';line-height:1.5;flex:1;">' + item.text + tagHtml + '</div>' +
+      '</div>';
+    });
+    html += '</div>';
+  });
+
+  html += '</div>'; // 왼쪽 끝
+
+  // 오른쪽: 이번 주 할 일 + 하반기 목표
+  html += '<div>';
+
+  // 이번 주 카드
+  const day = new Date().getDate();
+  const weekIdx = Math.min(Math.floor((day-1)/7), data.weeks.length-1);
+  const thisWeek = data.weeks[weekIdx];
+  const thisWeekRemain = thisWeek.items.filter((_,ii) => {
+    const s = state[month+'_'+weekIdx+'_'+ii];
+    return !(s !== undefined ? s : thisWeek.items[ii].done);
+  });
+
+  html += '<div style="background:#fff;border:2px solid #C6F432;border-radius:10px;padding:14px;margin-bottom:12px;">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
+      '<div style="font-size:12px;font-weight:600;color:#1F3864;display:flex;align-items:center;gap:6px;">📅 이번 주 할 일</div>' +
+      '<span style="background:#C6F432;color:#1F3864;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;">' + thisWeek.label + '</span>' +
+    '</div>' +
+    '<div style="font-size:10px;color:#888;margin-bottom:8px;">업무 현황 상단에도 함께 표시됩니다</div>';
+
+  if (thisWeekRemain.length === 0) {
+    html += '<div style="text-align:center;padding:16px;color:#3a6000;font-size:12px;">✅ 이번 주 모두 완료!</div>';
+  } else {
+    thisWeekRemain.slice(0,5).forEach(item => {
+      const tagHtml = item.tag === 'sys' ? '<span style="font-size:10px;padding:1px 6px;border-radius:10px;background:#e8ecf5;color:#1F3864;margin-left:4px;">시스템</span>' :
+        item.tag === 'biz' ? '<span style="font-size:10px;padding:1px 6px;border-radius:10px;background:#f0fad0;color:#3a6000;margin-left:4px;">영업</span>' :
+        item.tag === 'urgent' ? '<span style="font-size:10px;padding:1px 6px;border-radius:10px;background:#feeaea;color:#b91c1c;margin-left:4px;">긴급</span>' : '';
+      html += '<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid #fafaf8;">' +
+        '<div style="width:6px;height:6px;border-radius:50%;background:#C6F432;flex-shrink:0;margin-top:4px;"></div>' +
+        '<div style="font-size:12px;color:#333;flex:1;">' + item.text + tagHtml + '</div>' +
+      '</div>';
+    });
+    if (thisWeekRemain.length > 5) {
+      html += '<div style="font-size:11px;color:#888;text-align:center;padding-top:6px;">외 ' + (thisWeekRemain.length-5) + '건</div>';
+    }
+  }
+  html += '</div>';
+
+  // 하반기 목표
+  html += '<div class="card">' +
+    '<div class="card-title" style="font-size:12px;font-weight:600;color:#1F3864;margin-bottom:10px;display:flex;align-items:center;gap:6px;"><span style="width:3px;height:13px;background:#C6F432;border-radius:2px;display:inline-block;"></span>하반기 핵심 목표</div>' +
+    '<div style="font-size:12px;line-height:2;color:#555;">' +
+      '<div>9월 말 — 월매출 <strong style="color:#1F3864;">600~700만</strong></div>' +
+      '<div>12월 말 — 월매출 <strong style="color:#1F3864;">800~1,000만</strong></div>' +
+      '<div>키오스크 — <strong style="color:#1F3864;">3~5대</strong></div>' +
+      '<div>F&B 가맹점 — <strong style="color:#1F3864;">3~5곳</strong></div>' +
+      '<div>디오더 런칭 — <strong style="color:#1F3864;">12월 1주차</strong></div>' +
+    '</div>' +
+  '</div>';
+
+  html += '</div>'; // 오른쪽 끝
+  html += '</div>'; // 그리드 끝
+
+  contentEl.innerHTML = html;
+}
+
+function setOpMonth(m) {
+  _opCurrentMonth = m;
+  renderOperation();
 }
 
 
