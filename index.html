@@ -888,112 +888,89 @@ async function deleteOrder(id) {
 // MERCHANTS
 // =============================================
 async function renderMerchants() {
+  const contentEl = document.getElementById('content');
   try {
     const { data, error } = await db.from('merchants').select('*');
     if (error) throw error;
-    const sorted = (data||[]).slice().sort((a,b) => a.name.localeCompare(b.name,'ko'));
-    window._merchants = sorted;
+    window._merchants = (data||[]).slice().sort((a,b) => a.name.localeCompare(b.name,'ko'));
     window._merchantSearch = window._merchantSearch || '';
-    renderMerchantTable();
-  } catch(e) { document.getElementById('content').innerHTML = dbError(e); }
+
+    // 전체 구조 한번만 그리기
+    contentEl.innerHTML =
+      '<div class="card">' +
+        '<div class="card-header">' +
+          '<div class="card-title">가맹점 목록 (' + window._merchants.length + '곳)</div>' +
+          '<div style="display:flex;gap:8px;">' +
+            '<button class="btn btn-sm btn-excel" onclick="downloadMerchantTemplate()">📥 양식 다운로드</button>' +
+            '<button class="btn btn-sm" style="color:#7c3aed;border-color:#c4b5fd;background:#fff;" onclick="triggerMerchantUpload()">📤 엑셀 업로드</button>' +
+            '<button class="btn btn-sm btn-excel" onclick="exportMerchantsExcel()">📊 엑셀 저장</button>' +
+          '</div>' +
+        '</div>' +
+        '<div style="margin-bottom:14px;position:relative;">' +
+          '<input id="merchant-search" class="form-input" placeholder="🔍 가맹점명, 사업자번호, 연락처, 주소 검색..." style="padding-left:14px;"/>' +
+          '<button id="merchant-search-clear" style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#aaa;font-size:16px;">✕</button>' +
+        '</div>' +
+        '<div id="merchant-result-count" style="font-size:12px;color:#888;margin-bottom:8px;"></div>' +
+        '<div id="merchant-table-wrap"></div>' +
+      '</div>';
+
+    // 검색 이벤트 연결
+    const searchEl = document.getElementById('merchant-search');
+    const clearEl = document.getElementById('merchant-search-clear');
+    searchEl.value = window._merchantSearch;
+    searchEl.addEventListener('input', function() {
+      window._merchantSearch = this.value;
+      clearEl.style.display = this.value ? 'block' : 'none';
+      renderMerchantRows();
+    });
+    clearEl.addEventListener('click', function() {
+      window._merchantSearch = '';
+      searchEl.value = '';
+      clearEl.style.display = 'none';
+      renderMerchantRows();
+    });
+
+    renderMerchantRows();
+  } catch(e) { contentEl.innerHTML = dbError(e); }
 }
 
-function renderMerchantTable() {
-  const sorted = window._merchants || [];
+function renderMerchantRows() {
   const q = (window._merchantSearch || '').toLowerCase().trim();
-  const filtered = q ? sorted.filter(m =>
+  const filtered = q ? (window._merchants||[]).filter(m =>
     (m.name||'').toLowerCase().includes(q) ||
     (m.biz_no||'').includes(q) ||
-    (m.address||'').toLowerCase().includes(q) ||
-    (m.phone||'').includes(q)
-  ) : sorted;
+    (m.phone||'').includes(q) ||
+    (m.address||'').toLowerCase().includes(q)
+  ) : (window._merchants||[]);
 
-  const contentEl = document.getElementById('content');
+  const countEl = document.getElementById('merchant-result-count');
+  if (countEl) countEl.textContent = q ? '검색결과 ' + filtered.length + '곳' : '';
 
-  // 카드 wrapper
-  const card = document.createElement('div');
-  card.className = 'card';
+  const wrap = document.getElementById('merchant-table-wrap');
+  if (!wrap) return;
 
-  // 카드 헤더
-  const cardHeader = document.createElement('div');
-  cardHeader.className = 'card-header';
-  cardHeader.innerHTML =
-    '<div class="card-title">가맹점 목록 (' + sorted.length + '곳)</div>' +
-    '<div style="display:flex;gap:8px;">' +
-      '<button class="btn btn-sm btn-excel" onclick="downloadMerchantTemplate()">📥 양식 다운로드</button>' +
-      '<button class="btn btn-sm" style="color:#7c3aed;border-color:#c4b5fd;background:#fff;" onclick="triggerMerchantUpload()">📤 엑셀 업로드</button>' +
-      '<button class="btn btn-sm btn-excel" onclick="exportMerchantsExcel()">📊 엑셀 저장</button>' +
-    '</div>';
-  card.appendChild(cardHeader);
-
-  // 검색창
-  const searchWrap = document.createElement('div');
-  searchWrap.style.cssText = 'margin-bottom:14px;position:relative;';
-  const searchInput = document.createElement('input');
-  searchInput.id = 'merchant-search';
-  searchInput.className = 'form-input';
-  searchInput.placeholder = '🔍 가맹점명, 사업자번호, 연락처, 주소 검색...';
-  searchInput.value = window._merchantSearch || '';
-  searchInput.style.paddingLeft = '14px';
-  searchInput.oninput = function() {
-    window._merchantSearch = this.value;
-    renderMerchantTable();
-  };
-  searchWrap.appendChild(searchInput);
-
-  if (window._merchantSearch) {
-    const clearBtn = document.createElement('button');
-    clearBtn.textContent = '✕';
-    clearBtn.style.cssText = 'position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#aaa;font-size:16px;';
-    clearBtn.onclick = function() {
-      window._merchantSearch = '';
-      renderMerchantTable();
-    };
-    searchWrap.appendChild(clearBtn);
-  }
-  card.appendChild(searchWrap);
-
-  // 검색 결과 수
-  if (q) {
-    const countEl = document.createElement('div');
-    countEl.style.cssText = 'font-size:12px;color:#888;margin-bottom:8px;';
-    countEl.textContent = '검색결과 ' + filtered.length + '곳';
-    card.appendChild(countEl);
-  }
-
-  // 테이블 or 빈 상태
   if (filtered.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'empty-state';
-    empty.innerHTML = '<div class="es-icon">📭</div><div>' + (q ? '검색 결과가 없습니다.' : '등록된 가맹점이 없습니다.') + '</div>';
-    card.appendChild(empty);
-  } else {
-    const table = document.createElement('table');
-    table.innerHTML = '<thead><tr><th>가맹점명</th><th>사업자번호</th><th>연락처</th><th>주소</th><th>구분</th><th>상태</th><th></th></tr></thead>';
-    const tbody = document.createElement('tbody');
-    tbody.id = 'merchant-list';
-    filtered.forEach(m => {
-      const tr = document.createElement('tr');
-      const noteBtn = m.note ? '<button class="btn btn-sm" style="color:#1a56a0;border-color:#b5d4f4;" onclick="viewMerchantNote(' + m.id + ')">메모</button>' : '';
-      tr.innerHTML =
-        '<td><strong>' + (m.name||'-') + '</strong></td>' +
-        '<td style="color:#888">' + (m.biz_no||'-') + '</td>' +
-        '<td style="color:#333">' + (m.phone||'-') + '</td>' +
-        '<td style="color:#555;font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (m.address||'-') + '</td>' +
-        '<td>' + typeBadge(m.type) + '</td>' +
-        '<td>' + merchantStatusBadge(m.status) + '</td>' +
-        '<td style="display:flex;gap:4px;">' + noteBtn +
-          '<button class="btn btn-sm" onclick="editMerchant(' + m.id + ')">편집</button>' +
-          '<button class="btn btn-sm btn-danger" onclick="deleteMerchant(' + m.id + ')">삭제</button>' +
-        '</td>';
-      tbody.appendChild(tr);
-    });
-    table.appendChild(tbody);
-    card.appendChild(table);
+    wrap.innerHTML = '<div class="empty-state"><div class="es-icon">📭</div><div>' + (q ? '검색 결과가 없습니다.' : '등록된 가맹점이 없습니다.') + '</div></div>';
+    return;
   }
 
-  contentEl.innerHTML = '';
-  contentEl.appendChild(card);
+  let rows = '';
+  filtered.forEach(m => {
+    const noteBtn = m.note ? '<button class="btn btn-sm" style="color:#1a56a0;border-color:#b5d4f4;" onclick="viewMerchantNote(' + m.id + ')">메모</button>' : '';
+    rows +=
+      '<tr>' +
+      '<td><strong>' + (m.name||'-') + '</strong></td>' +
+      '<td style="color:#888">' + (m.biz_no||'-') + '</td>' +
+      '<td>' + (m.phone||'-') + '</td>' +
+      '<td style="color:#555;font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (m.address||'-') + '</td>' +
+      '<td>' + typeBadge(m.type) + '</td>' +
+      '<td>' + merchantStatusBadge(m.status) + '</td>' +
+      '<td style="display:flex;gap:4px;">' + noteBtn +
+        '<button class="btn btn-sm" onclick="editMerchant(' + m.id + ')">편집</button>' +
+        '<button class="btn btn-sm btn-danger" onclick="deleteMerchant(' + m.id + ')">삭제</button>' +
+      '</td></tr>';
+  });
+  wrap.innerHTML = '<table><thead><tr><th>가맹점명</th><th>사업자번호</th><th>연락처</th><th>주소</th><th>구분</th><th>상태</th><th></th></tr></thead><tbody id="merchant-list">' + rows + '</tbody></table>';
 }
 
 
@@ -1066,6 +1043,114 @@ function viewMerchantNote(id) {
   _modalSaveFn = null;
   document.getElementById('modal-overlay').classList.add('open');
 }
+
+function triggerMerchantUpload() {
+  let input = document.getElementById('merchant-upload-input');
+  if (!input) {
+    input = document.createElement('input');
+    input.type = 'file';
+    input.id = 'merchant-upload-input';
+    input.accept = '.xlsx,.xls';
+    input.style.display = 'none';
+    input.onchange = function() { uploadMerchantExcel(this); };
+    document.body.appendChild(input);
+  }
+  input.value = '';
+  input.click();
+}
+
+async function uploadMerchantExcel(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+  toast('파일 읽는 중...', 'success');
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+      // 헤더 행 찾기
+      let headerRow = -1;
+      for (let i = 0; i < Math.min(raw.length, 10); i++) {
+        const row = raw[i].map(c => String(c).replace('*','').trim());
+        if (row.includes('가맹점명') && row.includes('사업자번호')) { headerRow = i; break; }
+      }
+      if (headerRow === -1) return toast('헤더를 찾을 수 없습니다. 양식을 확인해주세요.', 'error');
+
+      const headers = raw[headerRow].map(c => String(c).replace('*','').trim());
+      const idx = {
+        name:   headers.indexOf('가맹점명'),
+        biz:    headers.indexOf('사업자번호'),
+        phone:  headers.indexOf('연락처'),
+        addr:   headers.indexOf('주소'),
+        type:   headers.indexOf('구분'),
+        status: headers.indexOf('상태'),
+        note:   headers.indexOf('메모'),
+      };
+
+      if (idx.name === -1 || idx.biz === -1) return toast('가맹점명 또는 사업자번호 컬럼을 찾을 수 없습니다.', 'error');
+
+      const dataRows = raw.slice(headerRow + 1).filter(r => r[idx.name] && r[idx.biz]);
+      if (dataRows.length === 0) return toast('업로드할 데이터가 없습니다.', 'error');
+
+      const preview = dataRows.slice(0,3).map(r => r[idx.name]).join(', ');
+      const more = dataRows.length > 3 ? ' 외 ' + (dataRows.length-3) + '건' : '';
+      if (!confirm('총 ' + dataRows.length + '건 업로드 (' + preview + more + '). 계속할까요?')) return;
+
+      toast('업로드 중...', 'success');
+
+      // 기존 가맹점 조회 - 사업자번호 정규화해서 매핑
+      const { data: existing } = await db.from('merchants').select('id, biz_no');
+      const normalize = s => String(s||'').replace(/[^0-9]/g,'');
+      const existingMap = {};
+      (existing||[]).forEach(m => { existingMap[normalize(m.biz_no)] = m.id; });
+
+      let updated = 0, added = 0, errors = 0;
+      const validTypes  = ['VAN','PG','VAN+PG'];
+      const validStatus = ['운영중','계약중','해지'];
+
+      for (const row of dataRows) {
+        const name    = String(row[idx.name]   ||'').trim();
+        const biz_no  = String(row[idx.biz]    ||'').trim();
+        const phone   = idx.phone  >= 0 ? String(row[idx.phone]  ||'').trim() : '';
+        const address = idx.addr   >= 0 ? String(row[idx.addr]   ||'').trim() : '';
+        const type    = idx.type   >= 0 ? String(row[idx.type]   ||'').trim() : 'VAN';
+        const status  = idx.status >= 0 ? String(row[idx.status] ||'').trim() : '운영중';
+        const note    = idx.note   >= 0 ? String(row[idx.note]   ||'').trim() : '';
+        if (!name || !biz_no) continue;
+
+        const payload = {
+          name, biz_no, phone, address,
+          type:   validTypes.includes(type)   ? type   : 'VAN',
+          status: validStatus.includes(status) ? status : '운영중',
+          note
+        };
+
+        const normBiz = normalize(biz_no);
+        const existingId = existingMap[normBiz];
+
+        if (existingId) {
+          const { error } = await db.from('merchants').update(payload).eq('id', existingId);
+          if (error) { console.error('update error:', error, payload); errors++; } else updated++;
+        } else {
+          const { error } = await db.from('merchants').insert(payload);
+          if (error) { console.error('insert error:', error, payload); errors++; } else added++;
+        }
+      }
+
+      await renderMerchants();
+      const msg = '완료! 업데이트 ' + updated + '건 / 추가 ' + added + '건' + (errors > 0 ? ' / 오류 ' + errors + '건 (F12 콘솔 확인)' : '');
+      toast(msg, errors > 0 ? 'error' : 'success');
+    } catch(err) {
+      toast('오류: ' + err.message, 'error');
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
 
 function triggerMerchantUpload() {
   let input = document.getElementById('merchant-upload-input');
