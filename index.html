@@ -251,13 +251,14 @@ function toast(msg, type = 'success') {
   setTimeout(() => t.className = 'toast', 2500);
 }
 
-function openModal(title, bodyHtml, saveFn, footerHtml) {
+let _modalSaveFn = null;
+function openModal(title, bodyHtml, saveFn) {
+  _modalSaveFn = saveFn;
   document.getElementById('modal-title').textContent = title;
   document.getElementById('modal-body').innerHTML = bodyHtml;
-  document.getElementById('modal-save-btn').onclick = saveFn;
-  if (footerHtml) document.getElementById('modal-footer').innerHTML = footerHtml;
-  else document.getElementById('modal-footer').innerHTML = '<button class="btn" onclick="closeModal()">취소</button><button class="btn btn-primary" id="modal-save-btn">저장</button>';
-  document.getElementById('modal-save-btn').onclick = saveFn;
+  document.getElementById('modal-footer').innerHTML =
+    '<button class="btn" onclick="closeModal()">취소</button>' +
+    '<button class="btn btn-primary" onclick="_modalSaveFn && _modalSaveFn()">저장</button>';
   document.getElementById('modal-overlay').classList.add('open');
 }
 function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
@@ -911,7 +912,7 @@ function renderMerchantTable() {
       return '<tr>' +
         '<td><strong>' + m.name + '</strong></td>' +
         '<td style="color:#888">' + (m.biz_no||'-') + '</td>' +
-        '<td>' + (m.phone ? '<a href="tel:' + m.phone + '" style="color:#1a56a0;">' + m.phone + '</a>' : '-') + '</td>' +
+        '<td style="color:#333">' + (m.phone||'-') + '</td>' +
         '<td style="color:#555;font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (m.address||'-') + '</td>' +
         '<td>' + typeBadge(m.type) + '</td>' +
         '<td>' + merchantStatusBadge(m.status) + '</td>' +
@@ -1004,6 +1005,7 @@ function viewMerchantNote(id) {
   document.getElementById('modal-body').innerHTML = '';
   document.getElementById('modal-body').appendChild(div);
   document.getElementById('modal-footer').innerHTML = '<button class="btn btn-primary" onclick="closeModal()">닫기</button>';
+  _modalSaveFn = null;
   document.getElementById('modal-overlay').classList.add('open');
 }
 
