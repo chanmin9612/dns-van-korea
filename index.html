@@ -1226,38 +1226,56 @@ function deliveryStatusBadge(s) {
   return '<span class="badge ' + (m[s]||'badge-gray') + '">' + s + '</span>';
 }
 
+function monthSelector(currentMonth, onChangeFn) {
+  const months = [];
+  const now = new Date();
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push(d.toISOString().slice(0,7));
+  }
+  return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">' +
+    '<span style="font-size:12px;color:#888;">월 선택:</span>' +
+    '<select class="form-select" style="width:140px;" onchange="' + onChangeFn + '(this.value)">' +
+    '<option value="">전체</option>' +
+    months.map(m => '<option value="' + m + '" ' + (currentMonth===m?'selected':'') + '>' + m + '</option>').join('') +
+    '</select></div>';
+}
+
+let _deliveryMonth = new Date().toISOString().slice(0,7);
+
 async function renderDelivery() {
   const contentEl = document.getElementById('content');
   try {
-    const { data, error } = await db.from('deliveries').select('*').neq('status','발송완료').order('created_at', { ascending: false });
+    let query = db.from('deliveries').select('*').neq('status','발송완료').order('created_at', { ascending: false });
+    const { data, error } = await query;
     if (error) throw error;
     window._deliveries = data || [];
     document.getElementById('badge-delivery').textContent = window._deliveries.length;
 
-    const statusGroups = ['요청접수','재고확인','준비중'];
-
-    // 플로우 스텝
-    let html = '<div class="flow-steps" style="margin-bottom:16px;">' +
-      ['요청접수','재고확인','준비중','발송완료'].map((s,i) =>
-        '<div class="flow-step ' + (i < 3 ? 'active' : '') + '">' + s + ' ' +
-        (i < 3 ? '(' + (window._deliveries.filter(d=>d.status===s).length) + ')' : '') + '</div>'
-      ).join('') + '</div>';
-
-    // 메트릭
-    const thisMonth = new Date().toISOString().slice(0,7);
-    const { data: allDel } = await db.from('deliveries').select('*').gte('created_at', thisMonth + '-01');
-    const monthDone = (allDel||[]).filter(d=>d.status==='발송완료');
+    // 이번달 발송완료 통계
+    const { data: monthData } = await db.from('deliveries')
+      .select('*').eq('status','발송완료')
+      .gte('shipped_date', _deliveryMonth + '-01')
+      .lte('shipped_date', _deliveryMonth + '-31');
+    const monthDone = monthData || [];
     const totalFee = monthDone.reduce((s,d)=>s+(d.shipping_fee||0),0);
     const directCount = monthDone.filter(d=>d.courier==='직접 배송').length;
 
+    let html = monthSelector(_deliveryMonth, 'setDeliveryMonth');
+
+    html += '<div class="flow-steps" style="margin-bottom:16px;">' +
+      ['요청접수','재고확인','준비중','발송완료'].map((s,i) => {
+        const cnt = i < 3 ? window._deliveries.filter(d=>d.status===s).length : monthDone.length;
+        return '<div class="flow-step ' + (i===2?'active':i<2?'done':'') + '">' + s + ' (' + cnt + ')</div>';
+      }).join('') + '</div>';
+
     html += '<div class="metrics">' +
       '<div class="metric"><div class="metric-label">진행 중</div><div class="metric-value">' + window._deliveries.length + '건</div><div class="metric-sub">처리 필요</div></div>' +
-      '<div class="metric"><div class="metric-label">이번 달 발송</div><div class="metric-value">' + monthDone.length + '건</div></div>' +
-      '<div class="metric"><div class="metric-label">이번 달 택배비</div><div class="metric-value">₩' + totalFee.toLocaleString() + '</div></div>' +
-      '<div class="metric"><div class="metric-label">직접 배송</div><div class="metric-value">' + directCount + '건</div><div class="metric-sub">이번 달</div></div>' +
+      '<div class="metric"><div class="metric-label">' + _deliveryMonth + ' 발송</div><div class="metric-value">' + monthDone.length + '건</div></div>' +
+      '<div class="metric"><div class="metric-label">' + _deliveryMonth + ' 택배비</div><div class="metric-value">₩' + totalFee.toLocaleString() + '</div></div>' +
+      '<div class="metric"><div class="metric-label">직접 배송</div><div class="metric-value">' + directCount + '건</div><div class="metric-sub">' + _deliveryMonth + '</div></div>' +
       '</div>';
 
-    // 진행중 목록
     html += '<div class="card"><div class="card-header"><div class="card-title">진행 중 배송</div>' +
       '<button class="btn btn-sm btn-excel" onclick="exportDeliveryExcel()">📊 엑셀 저장</button></div>';
 
@@ -1286,29 +1304,50 @@ async function renderDelivery() {
   } catch(e) { document.getElementById('content').innerHTML = dbError(e); }
 }
 
+function setDeliveryMonth(m) { _deliveryMonth = m || new Date().toISOString().slice(0,7); renderDelivery(); }
+
+let _historyMonth = '';
+
 async function renderDeliveryHistory() {
   const contentEl = document.getElementById('content');
   try {
-    const { data, error } = await db.from('deliveries').select('*').order('created_at', { ascending: false });
+    let query = db.from('deliveries').select('*').order('shipped_date', { ascending: false });
+    if (_historyMonth) {
+      query = query.gte('shipped_date', _historyMonth + '-01').lte('shipped_date', _historyMonth + '-31');
+    }
+    const { data, error } = await query;
     if (error) throw error;
     window._allDeliveries = data || [];
 
-    let html = '<div class="card"><div class="card-header"><div class="card-title">전체 배송 이력 (' + data.length + '건)</div>' +
+    const totalFee = (data||[]).reduce((s,d)=>s+(d.shipping_fee||0),0);
+    const doneCount = (data||[]).filter(d=>d.status==='발송완료').length;
+
+    let html = monthSelector(_historyMonth, 'setHistoryMonth');
+
+    html += '<div class="metrics" style="margin-bottom:14px;">' +
+      '<div class="metric"><div class="metric-label">조회 건수</div><div class="metric-value">' + (data||[]).length + '건</div></div>' +
+      '<div class="metric"><div class="metric-label">발송완료</div><div class="metric-value">' + doneCount + '건</div></div>' +
+      '<div class="metric"><div class="metric-label">총 택배비</div><div class="metric-value">₩' + totalFee.toLocaleString() + '</div></div>' +
+      '<div class="metric"><div class="metric-label">직접 배송</div><div class="metric-value">' + (data||[]).filter(d=>d.courier==='직접 배송').length + '건</div></div>' +
+      '</div>';
+
+    html += '<div class="card"><div class="card-header">' +
+      '<div class="card-title">배송 이력 ' + (_historyMonth ? '(' + _historyMonth + ')' : '(전체)') + '</div>' +
       '<button class="btn btn-sm btn-excel" onclick="exportDeliveryHistoryExcel()">📊 엑셀 저장</button></div>';
 
-    if (data.length === 0) {
+    if ((data||[]).length === 0) {
       html += emptyState('배송 이력이 없습니다.');
     } else {
       html += '<table><thead><tr><th>발송일</th><th>가맹점</th><th>품목</th><th>수량</th><th>택배사</th><th>운송장</th><th>요금</th><th>상태</th><th></th></tr></thead><tbody>';
-      data.forEach(d => {
+      (data||[]).forEach(d => {
         html += '<tr>' +
           '<td style="color:#888;font-size:12px">' + (d.shipped_date||d.request_date||'-') + '</td>' +
           '<td><strong>' + (d.merchant_name||'-') + '</strong></td>' +
           '<td>' + (d.item_name||'-') + '</td>' +
           '<td>' + (d.quantity||'-') + '</td>' +
-          '<td>' + (d.courier ? '<span class="badge badge-gray">' + d.courier + '</span>' : '-') + '</td>' +
+          '<td>' + (d.courier?'<span class="badge badge-gray">'+d.courier+'</span>':'-') + '</td>' +
           '<td style="font-size:12px;color:#888">' + (d.tracking_no||'-') + '</td>' +
-          '<td>' + (d.shipping_fee ? '₩' + d.shipping_fee.toLocaleString() : '-') + '</td>' +
+          '<td>' + (d.shipping_fee?'₩'+d.shipping_fee.toLocaleString():'-') + '</td>' +
           '<td>' + deliveryStatusBadge(d.status) + '</td>' +
           '<td style="display:flex;gap:4px;">' +
             '<button class="btn btn-sm" onclick="openEditDelivery(' + d.id + ')">편집</button>' +
@@ -1322,6 +1361,8 @@ async function renderDeliveryHistory() {
   } catch(e) { document.getElementById('content').innerHTML = dbError(e); }
 }
 
+function setHistoryMonth(m) { _historyMonth = m; renderDeliveryHistory(); }
+
 async function getDeliveryItems() {
   const { data } = await db.from('delivery_items').select('*').order('name');
   return data || [];
@@ -1329,7 +1370,7 @@ async function getDeliveryItems() {
 
 function deliveryForm(d = {}) {
   return '<div class="form-row">' +
-    '<div class="form-group"><label class="form-label">가맹점명 *</label><input id="dv-merchant" class="form-input" value="' + (d.merchant_name||'') + '" placeholder="가맹점 검색 또는 직접 입력"/></div>' +
+    '<div class="form-group"><label class="form-label">가맹점명 *</label><input id="dv-merchant" class="form-input" value="' + (d.merchant_name||'') + '" placeholder="가맹점 이름"/></div>' +
     '<div class="form-group"><label class="form-label">주소</label><input id="dv-addr" class="form-input" value="' + (d.merchant_addr||'') + '" placeholder="주소"/></div>' +
     '</div><div class="form-row">' +
     '<div class="form-group"><label class="form-label">품목 *</label><select id="dv-item" class="form-select">' +
@@ -1346,7 +1387,7 @@ function deliveryForm(d = {}) {
     '<div class="form-group"><label class="form-label">담당자</label><input id="dv-manager" class="form-input" value="' + (d.manager||'') + '" placeholder="담당자"/></div>' +
     '</div><div class="form-row">' +
     '<div class="form-group"><label class="form-label">택배사</label><select id="dv-courier" class="form-select"><option value="">선택</option>' +
-    ['우체국 택배','CJ대한통운','로젠택배','직접 배송','기타'].map(s => '<option ' + (d.courier===s?'selected':'') + '>' + s + '</option>').join('') +
+    ['우체국 택배','CJ대한통운','로젠택배','비즈원','직접 배송','기타'].map(s => '<option ' + (d.courier===s?'selected':'') + '>' + s + '</option>').join('') +
     '</select></div>' +
     '<div class="form-group"><label class="form-label">운송장 번호</label><input id="dv-tracking" class="form-input" value="' + (d.tracking_no||'') + '" placeholder="운송장 번호"/></div>' +
     '</div><div class="form-row">' +
@@ -1362,18 +1403,13 @@ function openAddDelivery() {
     const item_name = v('dv-item');
     if (!merchant_name || !item_name) return toast('가맹점명과 품목을 입력해주세요.', 'error');
     const { error } = await db.from('deliveries').insert({
-      delivery_no: genNo('DEL'),
-      merchant_name, merchant_addr: v('dv-addr'),
-      item_name, quantity: v('dv-qty'),
-      status: v('dv-status'), manager: v('dv-manager'),
+      delivery_no: genNo('DEL'), merchant_name, merchant_addr: v('dv-addr'),
+      item_name, quantity: v('dv-qty'), status: v('dv-status'), manager: v('dv-manager'),
       courier: v('dv-courier'), tracking_no: v('dv-tracking'),
-      shipping_fee: parseInt(v('dv-fee'))||0,
-      request_date: v('dv-reqdate'), note: v('dv-note')
+      shipping_fee: parseInt(v('dv-fee'))||0, request_date: v('dv-reqdate'), note: v('dv-note')
     });
     if (error) return toast('저장 실패: ' + error.message, 'error');
-    toast('배송이 등록되었습니다.'); closeModal();
-    if (document.querySelector('[data-page="delivery"].active')) renderDelivery();
-    else renderDeliveryHistory();
+    toast('배송이 등록되었습니다.'); closeModal(); renderDelivery();
   });
 }
 
@@ -1387,8 +1423,7 @@ function openEditDelivery(id) {
       item_name: v('dv-item'), quantity: v('dv-qty'),
       status: v('dv-status'), manager: v('dv-manager'),
       courier: v('dv-courier'), tracking_no: v('dv-tracking'),
-      shipping_fee: parseInt(v('dv-fee'))||0,
-      request_date: v('dv-reqdate'), note: v('dv-note')
+      shipping_fee: parseInt(v('dv-fee'))||0, request_date: v('dv-reqdate'), note: v('dv-note')
     }).eq('id', id);
     if (error) return toast('저장 실패: ' + error.message, 'error');
     toast('수정되었습니다.'); closeModal();
@@ -1434,7 +1469,7 @@ function exportDeliveryHistoryExcel() {
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '배송이력');
-  XLSX.writeFile(wb, '배송이력_' + today() + '.xlsx');
+  XLSX.writeFile(wb, '배송이력_' + (_historyMonth||'전체') + '.xlsx');
   toast('엑셀 저장 완료');
 }
 
