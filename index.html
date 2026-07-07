@@ -674,7 +674,7 @@ function csForm(c = {}) {
     ['전화','문자','카카오','이메일','방문'].map(s => '<option ' + (c.channel===s?'selected':'') + '>' + s + '</option>').join('') +
     '</select></div>' +
     '<div class="form-group"><label class="form-label">이슈 유형</label><select id="cs-issue-type" class="form-select">' +
-    ['단말기오류','결제오류','교체요청','소모품요청','설치문의','기타'].map(s => '<option ' + (c.issue_type===s?'selected':'') + '>' + s + '</option>').join('') +
+    ['단말기오류','결제오류','교체요청','소모품요청','설치문의','가맹점 관리','기타'].map(s => '<option ' + (c.issue_type===s?'selected':'') + '>' + s + '</option>').join('') +
     '</select></div>' +
     '</div>' +
     '<div class="form-group"><label class="form-label">이슈 내용 *</label><textarea id="cs-desc" class="form-textarea">' + (c.issue_desc||'') + '</textarea></div>' +
@@ -1167,7 +1167,7 @@ async function renderMerchants() {
 
     const filterTabs = `
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
-        ${['전체','우수','건수급감','관리대상','미조사','조사완료','이탈위험','휴면'].map(f => {
+        ${['전체','우수','건수급감','관리대상','이탈위험','휴면'].map(f => {
           const active = (window._merchantFilter||'전체') === f;
           const color = f==='우수' ? 'color:#0a6644;border-color:#b5ddc8;background:#f0fff4'
             : f==='건수급감' ? 'color:#92400e;border-color:#f0d080;background:#fff8e8'
@@ -1242,6 +1242,16 @@ function renderMerchantRows() {
     return (prev.approval - cur.approval) / prev.approval * 100 >= 30;
   });
 
+  // 기본 정렬: KIS 수익 내림차순 (우수 가맹점이 위, 관리대상이 아래로 자연스럽게 정렬)
+  // 검색 중일 때는 이름순 유지 (찾기 쉽도록)
+  if (!q) {
+    filtered = filtered.slice().sort((a, b) => {
+      const feeA = (window._kisMap||{})[a.name]?.total || 0;
+      const feeB = (window._kisMap||{})[b.name]?.total || 0;
+      return feeB - feeA;
+    });
+  }
+
   const countEl = document.getElementById('merchant-result-count');
   if (countEl) countEl.textContent = q ? '검색결과 ' + filtered.length + '곳' : '';
 
@@ -1256,12 +1266,9 @@ function renderMerchantRows() {
   let rows = '';
   filtered.forEach(m => {
     const noteBtn = m.note ? '<button class="btn btn-sm" style="color:#1a56a0;border-color:#b5d4f4;" onclick="viewMerchantNote(' + m.id + ')">메모</button>' : '';
+    // 이상 있을 때만 배지 표시 (정상은 노이즈이므로 생략)
     const riskBadge = m.risk_level === '이탈위험' ? '<span class="badge badge-red">이탈위험</span>' :
-      m.risk_level === '휴면' ? '<span class="badge badge-gray">휴면</span>' :
-      '<span class="badge badge-green">정상</span>';
-    const surveyBadge = m.survey_done ?
-      '<span style="color:#3a6000;font-size:13px;">✅</span>' :
-      '<span style="color:#ddd;font-size:13px;">○</span>';
+      m.risk_level === '휴면' ? '<span class="badge badge-gray">휴면</span>' : '-';
     const monthlyStr = m.monthly_amount > 0 ? '₩' + (m.monthly_amount/10000).toFixed(0) + '만' : '-';
 
     // KIS 정산 수익 배지
@@ -1273,10 +1280,12 @@ function renderMerchantRows() {
       kisBadge = '<span style="color:#1F3864;font-weight:700;font-size:13px">₩' + fee.toLocaleString() + '</span>';
     }
 
-    // 수익 순위 태그
+    // 수익 순위 태그 (우수/관리대상)
     let rankTag = '';
     if (window._kisTopNames && window._kisTopNames.has(m.name)) {
       rankTag = '<span style="background:#C6F432;color:#1F3864;font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;margin-left:4px">TOP</span>';
+    } else if (window._kisBotNames && window._kisBotNames.has(m.name)) {
+      rankTag = '<span style="background:#fee2e2;color:#b91c1c;font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;margin-left:4px">LOW</span>';
     }
 
     // 이탈 위험 자동 감지: 전월 대비 건수 30% 이상 감소
@@ -1284,7 +1293,7 @@ function renderMerchantRows() {
     if (kisData && kisPrev && kisPrev.approval > 0) {
       const dropPct = (kisPrev.approval - kisData.approval) / kisPrev.approval * 100;
       if (dropPct >= 30) {
-        alertTag = '<span style="background:#fee2e2;color:#b91c1c;font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;margin-left:4px">건수↓' + Math.round(dropPct) + '%</span>';
+        alertTag = '<span style="background:#fff3d6;color:#92400e;font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;margin-left:4px">건수↓' + Math.round(dropPct) + '%</span>';
       }
     }
 
@@ -1297,7 +1306,6 @@ function renderMerchantRows() {
       '<td style="font-size:12px;color:#1F3864;font-weight:600;">' + monthlyStr + '</td>' +
       '<td>' + (kisBadge || '-') + '</td>' +
       '<td>' + riskBadge + '</td>' +
-      '<td style="text-align:center;">' + surveyBadge + '</td>' +
       '<td style="display:flex;gap:4px;">' + noteBtn +
         '<button class="btn btn-sm" onclick="editMerchant(' + m.id + ')">편집</button>' +
         '<button class="btn btn-sm btn-danger" onclick="deleteMerchant(' + m.id + ')">삭제</button>' +
@@ -1309,7 +1317,7 @@ function renderMerchantRows() {
     '<table><thead><tr>' +
     '<th>가맹점명</th><th>사업자번호</th><th>연락처</th><th>업종</th><th>월결제</th>' +
     '<th style="color:#1F3864">KIS수익' + kisMonth + '</th>' +
-    '<th>분류</th><th>조사</th><th></th>' +
+    '<th>특이사항</th><th></th>' +
     '</tr></thead><tbody id="merchant-list">' + rows + '</tbody></table>';
 }
 
@@ -2930,6 +2938,18 @@ async function saveKisToSupabase(month) {
   });
 
   let updateCount = 0, skipCount = 0;
+  let csCreatedCount = 0;
+
+  // 이미 등록된 미해결 '가맹점 관리' CS 티켓 조회 (중복 생성 방지)
+  const { data: existingCS } = await db.from('cs_tickets')
+    .select('merchant_name,issue_type,status')
+    .neq('status', '완료');
+  const existingCSSet = new Set(
+    (existingCS||[])
+      .filter(c => c.issue_type === '가맹점 관리')
+      .map(c => c.merchant_name)
+  );
+
   for (const r of saveData) {
     if (r.approval <= 0) continue;
     const merchant = merchantByBiz[(r.biz_no||'').replace(/-/g,'').trim()] || merchantByName[r.name];
@@ -2944,10 +2964,27 @@ async function saveKisToSupabase(month) {
       survey_done: true
     }).eq('id', merchant.id);
     if (!upErr) updateCount++;
+
+    // 관리 필요 가맹점 → CS 관리에 자동 등록 (이미 미해결 티켓 있으면 스킵)
+    if ((risk_level === '이탈위험' || risk_level === '휴면') && !existingCSSet.has(r.name)) {
+      const issueDesc = risk_level === '휴면'
+        ? `${saveMonth} 결제 건수 0건 — 휴면 가맹점 확인 필요`
+        : `${saveMonth} 결제 건수 전월 대비 ${Math.round(drop)}% 감소 (${prev}건 → ${r.approval}건) — 이탈 위험 확인 필요`;
+      const { error: csErr } = await db.from('cs_tickets').insert({
+        ticket_no: genNo('CS'),
+        merchant_name: r.name,
+        issue_type: '가맹점 관리',
+        issue_desc: issueDesc,
+        priority: risk_level === '휴면' ? '보통' : '긴급',
+        status: '접수'
+      });
+      if (!csErr) { csCreatedCount++; existingCSSet.add(r.name); }
+    }
   }
 
   const skipMsg = skipCount > 0 ? ` / 미매칭 ${skipCount}곳` : '';
-  toast(`${saveMonth} 저장 완료 — ${rows.length}건 / 가맹점 ${updateCount}곳 업데이트${skipMsg}`);
+  const csMsg = csCreatedCount > 0 ? ` / CS 자동등록 ${csCreatedCount}건` : '';
+  toast(`${saveMonth} 저장 완료 — ${rows.length}건 / 가맹점 ${updateCount}곳 업데이트${csMsg}${skipMsg}`);
 
   window._kisResult = null;
   window._kisViewMonth = saveMonth;
