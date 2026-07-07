@@ -2738,10 +2738,11 @@ function renderKisResult(data) {
 
   <div class="card">
     <div class="card-header">
-      <div class="card-title">📋 가맹점별 수수료 수익 전체</div>
+      <div class="card-title">📋 가맹점별 수수료 수익 전체 <span style="font-size:12px;color:#888;font-weight:400">${analysisMonth}</span></div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-sm btn-excel" onclick="exportKisExcel()">📊 엑셀 저장</button>
         <button class="btn btn-sm btn-primary" onclick="saveKisToSupabase('${analysisMonth}')">💾 Supabase 저장</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteKisMonth('${analysisMonth}')">🗑 이 월 삭제</button>
       </div>
     </div>
     <table>
@@ -2788,11 +2789,9 @@ async function saveKisToSupabase(month) {
   if (!window._kisResult) return toast('먼저 분석을 실행해주세요.', 'error');
   if (!confirm(month + ' 정산 데이터를 Supabase에 저장할까요?\n기존 동일 월 데이터는 덮어씁니다.')) return;
 
-  // 기존 동일 월 완전 삭제 (await로 완료 보장)
   const { error: delError } = await db.from('kis_settlement').delete().eq('month', month);
   if (delError) return toast('기존 데이터 삭제 실패: ' + delError.message, 'error');
 
-  // 삭제 완료 후 신규 데이터 insert
   const rows = window._kisResult.results.filter(r=>r.total>0).map(r => ({
     month, merchant_name: r.name, biz_no: r.biz_no,
     approval_count: r.approval, desc_count: r.desc, cash_count: r.cash,
@@ -2806,6 +2805,18 @@ async function saveKisToSupabase(month) {
     return toast('저장 실패: ' + error.message, 'error');
   }
   toast(month + ' 정산 데이터 저장 완료 (' + rows.length + '건)');
+}
+
+async function deleteKisMonth(month) {
+  if (!confirm(month + ' 정산 데이터를 완전히 삭제할까요?\n이 작업은 되돌릴 수 없습니다.')) return;
+  const { error } = await db.from('kis_settlement').delete().eq('month', month);
+  if (error) return toast('삭제 실패: ' + error.message, 'error');
+  toast(month + ' 정산 데이터 삭제 완료');
+  window._kisResult = null;
+  window._kisViewMonth = null;
+  document.getElementById('kis-result').innerHTML = '';
+  // 탭 새로고침 (저장 월 목록 갱신)
+  renderRevenueKis();
 }
 
 // ── 탭3: 월별 추이 ──────────────────────────
