@@ -46,6 +46,11 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f0f2f5;color:#1a1a1a;font
 .btn-success{background:#e8f5ee;color:#0a6644;border-color:#b5ddc8;}
 .btn-excel{background:#fff;color:#1a6b3c;border-color:#b5ddc8;}
 .btn-excel:hover{background:#e8f5ee;}
+/* Tab bar */
+.tab-bar{display:flex;gap:4px;margin-bottom:16px;border-bottom:2px solid #e8e8e4;padding-bottom:0;}
+.tab-btn{background:none;border:none;padding:8px 16px;font-size:13px;font-weight:500;color:#888;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;border-radius:0;}
+.tab-btn:hover{color:#1F3864;background:#f5f5f3;}
+.tab-btn.active{color:#1F3864;font-weight:700;border-bottom:2px solid #C6F432;}
 
 /* Cards */
 .card{background:#fff;border:1px solid #e8e8e4;border-radius:10px;padding:18px;margin-bottom:16px;}
@@ -2244,48 +2249,466 @@ function exportDeliveryHistoryExcel() {
 // =============================================
 // REVENUE
 // =============================================
+// =============================================
+// 매출/정산 메인 렌더
+// =============================================
 async function renderRevenue() {
+  const activeTab = window._revenueTab || 'manual';
+  let html = '<div class="tab-bar">' +
+    '<button class="tab-btn' + (activeTab==='manual'?' active':'') + '" onclick="setRevenueTab(\'manual\')">📋 수동 입력</button>' +
+    '<button class="tab-btn' + (activeTab==='kis'?' active':'') + '" onclick="setRevenueTab(\'kis\')">📂 KIS 정산 분석</button>' +
+    '<button class="tab-btn' + (activeTab==='history'?' active':'') + '" onclick="setRevenueTab(\'history\')">📈 월별 추이</button>' +
+    '</div>';
+  document.getElementById('content').innerHTML = html + '<div id="revenue-tab-content"></div>';
+  if (activeTab === 'manual') renderRevenueManual();
+  else if (activeTab === 'kis') renderRevenueKis();
+  else renderRevenueHistory();
+}
+
+function setRevenueTab(tab) {
+  window._revenueTab = tab;
+  renderRevenue();
+}
+
+// ── 탭1: 수동 입력 ──────────────────────────
+async function renderRevenueManual() {
   try {
     const { data, error } = await db.from('revenue').select('*, merchants(name)').order('month', { ascending: false });
     if (error) throw error;
     window._revenue = data || [];
-
     const month = thisMonth();
     const thisMonthData = window._revenue.filter(r => r.month === month);
     const totalVan = thisMonthData.reduce((s,r) => s+(r.van_revenue||0), 0);
-    const totalPg = thisMonthData.reduce((s,r) => s+(r.pg_revenue||0), 0);
+    const totalPg  = thisMonthData.reduce((s,r) => s+(r.pg_revenue||0), 0);
     const total = totalVan + totalPg;
     const vanPct = total > 0 ? Math.round(totalVan/total*100) : 0;
-
     let html = '<div class="metrics">' +
       '<div class="metric"><div class="metric-label">이번 달 총 수익</div><div class="metric-value" style="font-size:18px">₩' + total.toLocaleString() + '원</div></div>' +
       '<div class="metric"><div class="metric-label">VAN 수익</div><div class="metric-value" style="font-size:18px">₩' + totalVan.toLocaleString() + '원</div><div class="metric-sub">' + vanPct + '%</div></div>' +
       '<div class="metric"><div class="metric-label">PG 수익</div><div class="metric-value" style="font-size:18px">₩' + totalPg.toLocaleString() + '원</div><div class="metric-sub">' + (100-vanPct) + '%</div></div>' +
-      '<div class="metric"><div class="metric-label">이번 달 입력</div><div class="metric-value">' + thisMonthData.length + '건</div></div>' +
+      '<div class="metric"><div class="metric-label">입력 건수</div><div class="metric-value">' + thisMonthData.length + '건</div></div>' +
       '</div>';
-
     html += '<div class="card"><div class="card-header"><div class="card-title">매출 내역</div>' +
       '<button class="btn btn-sm btn-excel" onclick="exportRevenueExcel()">📊 엑셀 저장</button></div>';
-
     if (window._revenue.length === 0) { html += emptyState('매출 내역이 없습니다.'); }
     else {
-      html += '<table><thead><tr><th>월</th><th>가맹점</th><th>가맹점 매출</th><th>VAN 수익</th><th>PG 수익</th><th>메모</th><th></th></tr></thead><tbody id="revenue-list">';
+      html += '<table><thead><tr><th>월</th><th>가맹점</th><th>가맹점 매출</th><th>VAN 수익</th><th>PG 수익</th><th>메모</th><th></th></tr></thead><tbody>';
       window._revenue.forEach(r => {
-        html += '<tr>' +
-          '<td>' + r.month + '</td>' +
-          '<td>' + (r.merchants?.name||'-') + '</td>' +
+        html += '<tr><td>' + r.month + '</td><td>' + (r.merchants?.name||'-') + '</td>' +
           '<td>₩' + (r.merchant_sales||0).toLocaleString() + '원</td>' +
           '<td style="color:#0a6644">₩' + (r.van_revenue||0).toLocaleString() + '원</td>' +
           '<td style="color:#1a56a0">₩' + (r.pg_revenue||0).toLocaleString() + '원</td>' +
           '<td style="color:#888">' + (r.note||'-') + '</td>' +
-          '<td><button class="btn btn-sm btn-danger" onclick="deleteRevenue(' + r.id + ')">삭제</button></td>' +
-          '</tr>';
+          '<td><button class="btn btn-sm btn-danger" onclick="deleteRevenue(' + r.id + ')">삭제</button></td></tr>';
       });
       html += '</tbody></table>';
     }
     html += '</div>';
-    document.getElementById('content').innerHTML = html;
-  } catch(e) { document.getElementById('content').innerHTML = dbError(e); }
+    document.getElementById('revenue-tab-content').innerHTML = html;
+  } catch(e) { document.getElementById('revenue-tab-content').innerHTML = dbError(e); }
+}
+
+// ── 탭2: KIS 정산 분석 ──────────────────────
+function renderRevenueKis() {
+  const saved = window._kisResult || null;
+  let html = `
+  <div class="card">
+    <div class="card-header"><div class="card-title">📂 KIS 정산 파일 업로드</div></div>
+    <div style="padding:16px">
+      <div style="background:#f0f4ff;border-radius:8px;padding:14px;margin-bottom:16px;font-size:13px;color:#444;line-height:1.8">
+        KIS 대리점 사이트에서 아래 3개 파일을 다운로드 후 업로드해주세요.<br>
+        <span style="color:#1F3864;font-weight:600">① 평균객단가 파일</span> — Bill_Merchant_Month_Fee_Excel.xls<br>
+        <span style="color:#1F3864;font-weight:600">② 대리점 수수료 파일</span> — Agency_Fee_Tran_Statement_Excel.xls<br>
+        <span style="color:#1F3864;font-weight:600">③ 가맹점별 승인건수 파일</span> — LargeStore_Tran_Statement_Excel.xls<br>
+        <span style="color:#C6F432;background:#1F3864;border-radius:4px;padding:2px 6px;font-size:11px;margin-left:4px">유상후불 지급율표 (.xlsx)</span>도 함께 업로드해주세요.
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <label style="font-size:12px;font-weight:600;color:#1F3864;display:block;margin-bottom:4px">① 평균객단가 (.xls)</label>
+          <input type="file" id="kis-file-bill" accept=".xls,.xlsx" style="width:100%;font-size:12px"/>
+          <div id="kis-bill-status" style="font-size:11px;color:#888;margin-top:2px"></div>
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:#1F3864;display:block;margin-bottom:4px">② 대리점 수수료 (.xls)</label>
+          <input type="file" id="kis-file-agency" accept=".xls,.xlsx" style="width:100%;font-size:12px"/>
+          <div id="kis-agency-status" style="font-size:11px;color:#888;margin-top:2px"></div>
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:#1F3864;display:block;margin-bottom:4px">③ 가맹점별 승인건수 (.xls)</label>
+          <input type="file" id="kis-file-large" accept=".xls,.xlsx" style="width:100%;font-size:12px"/>
+          <div id="kis-large-status" style="font-size:11px;color:#888;margin-top:2px"></div>
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:#1F3864;display:block;margin-bottom:4px">④ 유상후불 지급율표 (.xlsx)</label>
+          <input type="file" id="kis-file-rate" accept=".xlsx" style="width:100%;font-size:12px"/>
+          <div id="kis-rate-status" style="font-size:11px;color:#888;margin-top:2px"></div>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="runKisAnalysis()" style="width:100%">🔍 정산 분석 실행</button>
+    </div>
+  </div>
+  <div id="kis-result"></div>`;
+  document.getElementById('revenue-tab-content').innerHTML = html;
+  if (saved) renderKisResult(saved);
+}
+
+async function runKisAnalysis() {
+  const fBill   = document.getElementById('kis-file-bill').files[0];
+  const fAgency = document.getElementById('kis-file-agency').files[0];
+  const fLarge  = document.getElementById('kis-file-large').files[0];
+  const fRate   = document.getElementById('kis-file-rate').files[0];
+  if (!fBill || !fAgency || !fLarge || !fRate) return toast('4개 파일을 모두 업로드해주세요.', 'error');
+
+  document.getElementById('kis-result').innerHTML = '<div style="text-align:center;padding:40px;color:#888">⏳ 분석 중...</div>';
+
+  try {
+    // 파일 읽기 헬퍼
+    const readHtml = f => new Promise((res,rej) => {
+      const r = new FileReader();
+      r.onload = e => res(e.target.result);
+      r.onerror = rej;
+      r.readAsText(f, 'EUC-KR');
+    });
+    const readBinary = f => new Promise((res,rej) => {
+      const r = new FileReader();
+      r.onload = e => res(e.target.result);
+      r.onerror = rej;
+      r.readAsBinaryString(f);
+    });
+
+    // ── 1. 평균객단가 파싱 ──
+    const billHtml = await readHtml(fBill);
+    const billDoc = new DOMParser().parseFromString(billHtml, 'text/html');
+    const billTables = billDoc.querySelectorAll('table');
+    const avgPrice = {};
+    for (const tbl of billTables) {
+      for (const row of tbl.querySelectorAll('tr')) {
+        const cells = [...row.querySelectorAll('td,th')].map(c => c.textContent.trim());
+        if (cells.length === 6 && /^\d+$/.test(cells[0])) {
+          const biz = cells[3].replace(/-/g,'');
+          const price = parseFloat(cells[5].replace(/,/g,''));
+          if (biz && !isNaN(price) && !avgPrice[biz]) avgPrice[biz] = price;
+        }
+      }
+    }
+    document.getElementById('kis-bill-status').textContent = '✅ ' + Object.keys(avgPrice).length + '개 가맹점 로드';
+
+    // ── 2. 대리점 수수료 파싱 ──
+    const agencyHtml = await readHtml(fAgency);
+    const agencyDoc = new DOMParser().parseFromString(agencyHtml, 'text/html');
+    const agencyTables = agencyDoc.querySelectorAll('table');
+    let totalVan = 0, totalDesc = 0, totalCash = 0, descCount = 0, cashCount = 0;
+    for (const tbl of agencyTables) {
+      const rows = [...tbl.querySelectorAll('tr')];
+      // 합계 행: 23개 컬럼, 첫 번째 셀이 숫자(17,609 등)
+      for (const row of rows) {
+        const cells = [...row.querySelectorAll('td,th')].map(c => c.textContent.trim()).filter(c=>c);
+        if (cells.length === 23) {
+          const n = s => parseInt(s.replace(/,/g,'').replace(/-/g,'0'))||0;
+          const candidate = n(cells[3]); // 합계건수
+          if (candidate > 1000) { // 합계 행 식별
+            totalVan  = n(cells[4]);
+            descCount = n(cells[11]) + n(cells[12]) + n(cells[13]) + n(cells[14]);
+            totalDesc = n(cells[15]);
+            cashCount = n(cells[20]);
+            totalCash = n(cells[21]);
+            break;
+          }
+        }
+      }
+      if (totalVan > 0) break;
+    }
+    document.getElementById('kis-agency-status').textContent = '✅ 유상후불 ₩' + totalVan.toLocaleString() + ' / DESC ₩' + totalDesc.toLocaleString() + ' / 현금 ₩' + totalCash.toLocaleString();
+
+    // ── 3. 가맹점별 승인/DESC/현금 건수 파싱 ──
+    const largeHtml = await readHtml(fLarge);
+    const largeDoc = new DOMParser().parseFromString(largeHtml, 'text/html');
+    const largeTables = largeDoc.querySelectorAll('table');
+    let merchants = [], approvalData = [];
+    for (const tbl of largeTables) {
+      const rows = [...tbl.querySelectorAll('tr')];
+      const mList = rows.filter(r => {
+        const c = [...r.querySelectorAll('td,th')].map(x=>x.textContent.trim()).filter(x=>x);
+        return c.length === 4 && c[0] === '9780';
+      }).map(r => {
+        const c = [...r.querySelectorAll('td,th')].map(x=>x.textContent.trim()).filter(x=>x);
+        return { name: c[3], biz_no: c[2].replace(/-/g,'') };
+      });
+      if (mList.length > 10) { merchants = mList; break; }
+    }
+    for (const tbl of largeTables) {
+      const rows = [...tbl.querySelectorAll('tr')];
+      const dList = rows.filter(r => {
+        const c = [...r.querySelectorAll('td,th')].map(x=>x.textContent.trim()).filter(x=>x);
+        return c.length === 60;
+      }).map(r => {
+        const c = [...r.querySelectorAll('td,th')].map(x=>x.textContent.trim()).filter(x=>x);
+        const n = s => parseInt(s.replace(/,/g,'').replace(/-/g,'0'))||0;
+        return { approval: n(c[11]), desc: n(c[53]), cash: n(c[59]) };
+      });
+      if (dList.length > 10) { approvalData = dList; break; }
+    }
+    document.getElementById('kis-large-status').textContent = '✅ ' + merchants.length + '개 가맹점 / 승인건수 로드';
+
+    // ── 4. 유상후불 지급율표 파싱 ──
+    const rateBin = await readBinary(fRate);
+    const rateWb  = XLSX.read(rateBin, { type: 'binary' });
+    const rateWs  = rateWb.Sheets[rateWb.SheetNames[0]];
+    const rateArr = XLSX.utils.sheet_to_json(rateWs, { header:1, defval:'' });
+    const rateRanges = rateArr[0].slice(2);
+    const amountTable = [];
+    for (let i = 2; i < rateArr.length; i++) {
+      const row = rateArr[i];
+      if (!row[0]) continue;
+      try {
+        const lo = parseFloat(row[0]), hi = row[1] ? parseFloat(row[1]) : Infinity;
+        const profits = row.slice(2, 2+rateRanges.length).map(x => parseFloat(x)||0);
+        amountTable.push({ lo, hi, profits });
+      } catch(e) {}
+    }
+    document.getElementById('kis-rate-status').textContent = '✅ ' + amountTable.length + '개 구간 로드';
+
+    function findRateCol(rate) {
+      for (let i = 0; i < rateRanges.length; i++) {
+        try {
+          const parts = String(rateRanges[i]).replace('이상','~9999').split('~');
+          const lo = parseFloat(parts[0]), hi = parts[1] ? parseFloat(parts[1]) : 9999;
+          if (lo <= rate && rate < hi) return i;
+        } catch(e) {}
+      }
+      return rateRanges.length - 1;
+    }
+    function findAmountRow(avg) {
+      for (let i = 0; i < amountTable.length; i++) {
+        if (amountTable[i].lo <= avg && avg < amountTable[i].hi) return i;
+      }
+      return amountTable.length - 1;
+    }
+
+    // ── 5. 가맹점별 수익 계산 ──
+    const RATE = 1.51;
+    const rateCol = findRateCol(RATE);
+    const descPerTx = descCount > 0 ? totalDesc / descCount : 0;
+    const cashPerTx = cashCount > 0 ? totalCash / cashCount : 0;
+
+    // 비율 배분용 raw 수익 계산
+    const raw = merchants.map((m, i) => {
+      const avg = avgPrice[m.biz_no] || 0;
+      const count = approvalData[i]?.approval || 0;
+      if (avg <= 0 || count <= 0) return 0;
+      const ri = findAmountRow(avg);
+      const profitPerTx = (amountTable[ri]?.profits[rateCol] || 0) * avg;
+      return profitPerTx * count;
+    });
+    const totalRaw = raw.reduce((s,v)=>s+v, 0);
+
+    const results = merchants.map((m, i) => {
+      const avg = avgPrice[m.biz_no] || 0;
+      const ad  = approvalData[i] || { approval:0, desc:0, cash:0 };
+      const feeVan  = totalRaw > 0 ? (raw[i] / totalRaw * totalVan) : 0;
+      const feeDesc = ad.desc * descPerTx;
+      const feeCash = ad.cash * cashPerTx;
+      return {
+        name: m.name, biz_no: m.biz_no,
+        approval: ad.approval, desc: ad.desc, cash: ad.cash,
+        avg, monthly: avg * ad.approval,
+        feeVan, feeDesc, feeCash,
+        total: feeVan + feeDesc + feeCash
+      };
+    }).sort((a,b) => b.total - a.total);
+
+    const grandTotal = totalVan + totalDesc + totalCash;
+    const analysisMonth = (() => {
+      const d = new Date(); d.setMonth(d.getMonth()-1);
+      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    })();
+
+    window._kisResult = { results, totalVan, totalDesc, totalCash, grandTotal, analysisMonth };
+    renderKisResult(window._kisResult);
+
+  } catch(e) {
+    document.getElementById('kis-result').innerHTML = '<div class="card" style="padding:20px;color:red">❌ 분석 오류: ' + e.message + '</div>';
+    console.error(e);
+  }
+}
+
+function renderKisResult(data) {
+  const { results, totalVan, totalDesc, totalCash, grandTotal, analysisMonth } = data;
+  const valid = results.filter(r => r.total > 0);
+  const top5  = valid.slice(0, 5);
+
+  let html = `
+  <div class="metrics" style="margin-top:16px">
+    <div class="metric"><div class="metric-label">총 정산액</div><div class="metric-value" style="color:#1F3864">₩${grandTotal.toLocaleString()}</div></div>
+    <div class="metric"><div class="metric-label">유상후불</div><div class="metric-value" style="font-size:15px">₩${totalVan.toLocaleString()}</div></div>
+    <div class="metric"><div class="metric-label">DESC</div><div class="metric-value" style="font-size:15px">₩${totalDesc.toLocaleString()}</div></div>
+    <div class="metric"><div class="metric-label">현금영수증</div><div class="metric-value" style="font-size:15px">₩${totalCash.toLocaleString()}</div></div>
+  </div>
+
+  <div class="card" style="margin-top:0">
+    <div class="card-header">
+      <div class="card-title">🏆 수익 TOP 5 가맹점</div>
+    </div>
+    <div style="padding:12px 16px">`;
+  top5.forEach((r, i) => {
+    const pct = grandTotal > 0 ? Math.round(r.total / grandTotal * 100) : 0;
+    const barColor = ['#1F3864','#2a4a7f','#3a5c9a','#4a6eb5','#5a80cc'][i];
+    html += `
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-size:13px;font-weight:600">${i+1}. ${r.name}</span>
+          <span style="font-size:13px;color:#1F3864;font-weight:700">₩${Math.round(r.total).toLocaleString()}</span>
+        </div>
+        <div style="background:#eee;border-radius:4px;height:8px">
+          <div style="background:${barColor};width:${Math.min(pct*3,100)}%;height:8px;border-radius:4px"></div>
+        </div>
+        <div style="font-size:11px;color:#888;margin-top:2px">${r.approval}건 · 객단가 ₩${Math.round(r.avg).toLocaleString()} · 월결제 ₩${Math.round(r.monthly).toLocaleString()}</div>
+      </div>`;
+  });
+  html += `</div></div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">📋 가맹점별 수수료 수익 전체</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-sm btn-excel" onclick="exportKisExcel()">📊 엑셀 저장</button>
+        <button class="btn btn-sm btn-primary" onclick="saveKisToSupabase('${analysisMonth}')">💾 Supabase 저장</button>
+      </div>
+    </div>
+    <table>
+      <thead><tr>
+        <th>가맹점명</th><th>승인건수</th><th>DESC</th><th>현금</th>
+        <th>월결제금액</th><th>유상후불</th><th>DESC수익</th><th>현금수익</th>
+        <th style="color:#1F3864;font-weight:700">합계</th>
+      </tr></thead>
+      <tbody>`;
+  valid.forEach(r => {
+    html += `<tr>
+      <td style="font-weight:500">${r.name}</td>
+      <td style="text-align:right">${r.approval.toLocaleString()}</td>
+      <td style="text-align:right">${r.desc.toLocaleString()}</td>
+      <td style="text-align:right">${r.cash.toLocaleString()}</td>
+      <td style="text-align:right">₩${Math.round(r.monthly).toLocaleString()}</td>
+      <td style="text-align:right;color:#0a6644">₩${Math.round(r.feeVan).toLocaleString()}</td>
+      <td style="text-align:right;color:#1a56a0">₩${Math.round(r.feeDesc).toLocaleString()}</td>
+      <td style="text-align:right;color:#7c5cbf">₩${Math.round(r.feeCash).toLocaleString()}</td>
+      <td style="text-align:right;font-weight:700;color:#1F3864">₩${Math.round(r.total).toLocaleString()}</td>
+    </tr>`;
+  });
+  html += `</tbody></table></div>`;
+  document.getElementById('kis-result').innerHTML = html;
+}
+
+function exportKisExcel() {
+  if (!window._kisResult) return toast('먼저 분석을 실행해주세요.', 'error');
+  const data = window._kisResult.results.filter(r=>r.total>0).map(r => ({
+    가맹점명: r.name, 사업자번호: r.biz_no,
+    승인건수: r.approval, DESC건수: r.desc, 현금영수증건수: r.cash,
+    평균객단가: Math.round(r.avg), 월결제금액: Math.round(r.monthly),
+    유상후불수익: Math.round(r.feeVan), DESC수익: Math.round(r.feeDesc),
+    현금영수증수익: Math.round(r.feeCash), 합계수익: Math.round(r.total)
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'KIS정산분석');
+  XLSX.writeFile(wb, 'KIS정산분석_' + (window._kisResult.analysisMonth||today()) + '.xlsx');
+  toast('엑셀 저장 완료');
+}
+
+async function saveKisToSupabase(month) {
+  if (!window._kisResult) return toast('먼저 분석을 실행해주세요.', 'error');
+  if (!confirm(month + ' 정산 데이터를 Supabase에 저장할까요?\n기존 동일 월 데이터는 덮어씁니다.')) return;
+
+  // 기존 동일 월 삭제 후 재저장
+  await db.from('kis_settlement').delete().eq('month', month);
+  const rows = window._kisResult.results.filter(r=>r.total>0).map(r => ({
+    month, merchant_name: r.name, biz_no: r.biz_no,
+    approval_count: r.approval, desc_count: r.desc, cash_count: r.cash,
+    avg_amount: Math.round(r.avg), monthly_amount: Math.round(r.monthly),
+    fee_van: Math.round(r.feeVan), fee_desc: Math.round(r.feeDesc),
+    fee_cash: Math.round(r.feeCash), fee_total: Math.round(r.total)
+  }));
+  const { error } = await db.from('kis_settlement').insert(rows);
+  if (error) {
+    // 테이블 없을 경우 안내
+    if (error.code === '42P01') return toast('kis_settlement 테이블을 먼저 생성해주세요.', 'error');
+    return toast('저장 실패: ' + error.message, 'error');
+  }
+  toast(month + ' 정산 데이터 저장 완료 (' + rows.length + '건)');
+}
+
+// ── 탭3: 월별 추이 ──────────────────────────
+async function renderRevenueHistory() {
+  try {
+    // Supabase kis_settlement에서 월별 집계
+    const { data: kisData } = await db.from('kis_settlement')
+      .select('month,fee_van,fee_desc,fee_cash,fee_total')
+      .order('month', { ascending: true });
+
+    const { data: manualData } = await db.from('revenue')
+      .select('month,van_revenue,pg_revenue')
+      .order('month', { ascending: true });
+
+    // 월별 집계
+    const monthMap = {};
+    (kisData||[]).forEach(r => {
+      if (!monthMap[r.month]) monthMap[r.month] = { van:0, desc:0, cash:0, manual:0 };
+      monthMap[r.month].van  += r.fee_van || 0;
+      monthMap[r.month].desc += r.fee_desc || 0;
+      monthMap[r.month].cash += r.fee_cash || 0;
+    });
+    (manualData||[]).forEach(r => {
+      if (!monthMap[r.month]) monthMap[r.month] = { van:0, desc:0, cash:0, manual:0 };
+      monthMap[r.month].manual += (r.van_revenue||0) + (r.pg_revenue||0);
+    });
+
+    const months = Object.keys(monthMap).sort();
+
+    if (months.length === 0) {
+      document.getElementById('revenue-tab-content').innerHTML =
+        '<div class="card" style="padding:40px;text-align:center;color:#888">' +
+        'KIS 정산 데이터를 Supabase에 저장하면 월별 추이를 확인할 수 있어요.</div>';
+      return;
+    }
+
+    // 차트 + 테이블
+    const maxVal = Math.max(...months.map(m => monthMap[m].van + monthMap[m].desc + monthMap[m].cash + monthMap[m].manual));
+    let html = '<div class="card"><div class="card-header"><div class="card-title">📈 월별 수익 추이</div></div>';
+    html += '<div style="padding:16px">';
+
+    // 막대 차트
+    html += '<div style="display:flex;align-items:flex-end;gap:12px;height:160px;margin-bottom:8px;padding:0 8px">';
+    months.forEach(m => {
+      const d = monthMap[m];
+      const total = d.van + d.desc + d.cash + d.manual;
+      const h = maxVal > 0 ? Math.round(total / maxVal * 140) : 0;
+      html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+        <div style="font-size:10px;color:#1F3864;font-weight:600">₩${Math.round(total/10000)}만</div>
+        <div style="width:100%;background:#1F3864;height:${h}px;border-radius:4px 4px 0 0;min-height:4px"></div>
+        <div style="font-size:10px;color:#888">${m.slice(5)}월</div>
+      </div>`;
+    });
+    html += '</div>';
+
+    // 테이블
+    html += '<table style="margin-top:8px"><thead><tr><th>월</th><th>유상후불</th><th>DESC</th><th>현금</th><th>수동입력</th><th style="color:#1F3864">합계</th></tr></thead><tbody>';
+    months.slice().reverse().forEach(m => {
+      const d = monthMap[m];
+      const total = d.van + d.desc + d.cash + d.manual;
+      html += `<tr>
+        <td>${m}</td>
+        <td style="text-align:right;color:#0a6644">₩${d.van.toLocaleString()}</td>
+        <td style="text-align:right;color:#1a56a0">₩${d.desc.toLocaleString()}</td>
+        <td style="text-align:right;color:#7c5cbf">₩${d.cash.toLocaleString()}</td>
+        <td style="text-align:right;color:#888">₩${d.manual.toLocaleString()}</td>
+        <td style="text-align:right;font-weight:700;color:#1F3864">₩${total.toLocaleString()}</td>
+      </tr>`;
+    });
+    html += '</tbody></table></div></div>';
+    document.getElementById('revenue-tab-content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('revenue-tab-content').innerHTML = '<div class="card" style="padding:20px;color:red">❌ ' + e.message + '</div>';
+  }
 }
 
 function openAddRevenue() {
@@ -2309,7 +2732,7 @@ function openAddRevenue() {
           pg_revenue: parseInt(v('r-pg'))||0, note: v('r-note')
         });
         if (error) return toast('저장 실패: ' + error.message, 'error');
-        toast('입력되었습니다.'); closeModal(); renderRevenue();
+        toast('입력되었습니다.'); closeModal(); renderRevenueManual();
       }
     );
   });
@@ -2319,7 +2742,7 @@ async function deleteRevenue(id) {
   if (!confirm('삭제할까요?')) return;
   const { error } = await db.from('revenue').delete().eq('id', id);
   if (error) return toast('삭제 실패', 'error');
-  toast('삭제되었습니다.'); renderRevenue();
+  toast('삭제되었습니다.'); renderRevenueManual();
 }
 
 function exportRevenueExcel() {
