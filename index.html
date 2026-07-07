@@ -2455,33 +2455,29 @@ async function runKisAnalysis() {
     document.getElementById('kis-bill-status').textContent = '✅ ' + Object.keys(avgPriceByTerminal).length + '개 단말기 객단가 로드';
 
     // ── 2. 대리점 수수료 파싱 ──
-    // 구조: DNS(9780) 행 → DYB(BKY0) 행 → 합계 행 순서
-    // 합계 행 = 23컬럼 행 중 마지막 → 전체 대리점 합산값
+    // 합계 행 식별: cells[22](총합계)가 가장 큰 행 = 전체 대리점 합산행
     const agencyHtml = await readHtml(fAgency);
     const agencyDoc = new DOMParser().parseFromString(agencyHtml, 'text/html');
     const agencyTables = agencyDoc.querySelectorAll('table');
     let totalVan = 0, totalDesc = 0, totalCash = 0, descCount = 0, cashCount = 0;
+    let bestTotal = 0;
     for (const tbl of agencyTables) {
       const rows = [...tbl.querySelectorAll('tr')];
-      // 23컬럼 행을 모두 수집 후 마지막 행이 합계
-      const dataRows23 = rows.filter(row => {
+      for (const row of rows) {
         const cells = [...row.querySelectorAll('td,th')].map(c => c.textContent.trim()).filter(c=>c);
-        if (cells.length !== 23) return false;
+        if (cells.length !== 23) continue;
         const n = s => parseInt(s.replace(/,/g,'').replace(/-/g,'0'))||0;
-        return n(cells[3]) > 100; // 건수가 있는 행만
-      });
-      if (dataRows23.length > 0) {
-        // 마지막 행 = 합계 행 (DNS + DYB + ... 전체 합산)
-        const lastRow = dataRows23[dataRows23.length - 1];
-        const cells = [...lastRow.querySelectorAll('td,th')].map(c => c.textContent.trim()).filter(c=>c);
-        const n = s => parseInt(s.replace(/,/g,'').replace(/-/g,'0'))||0;
-        totalVan  = n(cells[4]);
-        descCount = n(cells[11]) + n(cells[12]) + n(cells[13]) + n(cells[14]);
-        totalDesc = n(cells[15]);
-        cashCount = n(cells[20]);
-        totalCash = n(cells[21]);
-        break;
+        const rowTotal = n(cells[22]); // 총합계 컬럼
+        if (rowTotal > bestTotal) {   // 가장 큰 총합계 행 = 전체 합계 행
+          bestTotal  = rowTotal;
+          totalVan   = n(cells[4]);
+          descCount  = n(cells[11]) + n(cells[12]) + n(cells[13]) + n(cells[14]);
+          totalDesc  = n(cells[15]);
+          cashCount  = n(cells[20]);
+          totalCash  = n(cells[21]);
+        }
       }
+      if (bestTotal > 0) break;
     }
     document.getElementById('kis-agency-status').textContent = '✅ 유상후불 ₩' + totalVan.toLocaleString() + ' / DESC ₩' + totalDesc.toLocaleString() + ' / 현금 ₩' + totalCash.toLocaleString();
 
