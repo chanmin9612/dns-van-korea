@@ -2713,8 +2713,14 @@ async function runKisAnalysis() {
     // ── 5. 가맹점별 수익 계산 (단말기번호 기준 정확한 매핑) ──
     const RATE = 1.51;
     const rateCol = findRateCol(RATE);
-    const descPerTx = descCount > 0 ? totalDesc / descCount : 0;
-    const cashPerTx = cashCount > 0 ? totalCash / cashCount : 0;
+
+    // 핵심 수정: descCount/cashCount는 Agency 파일 컬럼이 아닌
+    // 실제 가맹점별(approvalByTerminal) desc/cash 합계로 재계산
+    // → 건당 단가와 가맹점별 배분이 항상 내부적으로 일치하도록 보장
+    const actualDescCount = Object.values(approvalByTerminal).reduce((s,a) => s + (a.desc||0), 0);
+    const actualCashCount = Object.values(approvalByTerminal).reduce((s,a) => s + (a.cash||0), 0);
+    const descPerTx = actualDescCount > 0 ? totalDesc / actualDescCount : 0;
+    const cashPerTx = actualCashCount > 0 ? totalCash / actualCashCount : 0;
 
     // 단말기별 raw 수익 계산 (단말기번호로 정확한 객단가 + 건수 매핑)
     const raw = merchants.map(m => {
