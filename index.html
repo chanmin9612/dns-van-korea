@@ -2501,10 +2501,9 @@ async function renderRevenueKis() {
   <div id="kis-result"></div>`;
   document.getElementById('revenue-tab-content').innerHTML = html;
 
-  // 저장된 데이터 자동 로드
-  if (window._kisResult) {
-    renderKisResult(window._kisResult);
-  } else if (window._kisViewMonth) {
+  // 저장된 데이터 자동 로드 — 항상 Supabase에서 최신 데이터 조회
+  // (window._kisResult는 저장 버튼용으로만 사용, 화면 표시는 항상 DB에서)
+  if (window._kisViewMonth) {
     loadKisFromSupabase(window._kisViewMonth);
   }
 }
@@ -2914,6 +2913,12 @@ async function saveKisToSupabase(month) {
 
   const skipMsg = skipCount > 0 ? ` / 미매칭 ${skipCount}곳 (가맹점 관리에 미등록)` : '';
   toast(`${month} 저장 완료 — KIS ${rows.length}건 / 가맹점 ${updateCount}곳 업데이트${skipMsg}`);
+
+  // 저장 후 캐시 초기화 → 다음 조회 시 항상 Supabase에서 최신 데이터 로드
+  window._kisResult = null;
+  window._kisViewMonth = month;
+  // 결과 화면 Supabase에서 재로드 (방금 저장한 정확한 데이터 표시)
+  await loadKisFromSupabase(month);
 }
 
 async function deleteKisMonth(month) {
