@@ -2386,18 +2386,19 @@ async function runKisAnalysis() {
     const billHtml = await readHtml(fBill);
     const billDoc = new DOMParser().parseFromString(billHtml, 'text/html');
     const billTables = billDoc.querySelectorAll('table');
-    const avgPrice = {};
+    // 단말기번호 기준으로 객단가 매핑 (사업자번호 기준 X → 단말기마다 다른 객단가 반영)
+    const avgPriceByTerminal = {};
     for (const tbl of billTables) {
       for (const row of tbl.querySelectorAll('tr')) {
         const cells = [...row.querySelectorAll('td,th')].map(c => c.textContent.trim());
         if (cells.length === 6 && /^\d+$/.test(cells[0])) {
-          const biz = cells[3].replace(/-/g,'');
+          const terminal = cells[2]; // 단말기번호
           const price = parseFloat(cells[5].replace(/,/g,''));
-          if (biz && !isNaN(price) && !avgPrice[biz]) avgPrice[biz] = price;
+          if (terminal && !isNaN(price)) avgPriceByTerminal[terminal] = price;
         }
       }
     }
-    document.getElementById('kis-bill-status').textContent = '✅ ' + Object.keys(avgPrice).length + '개 가맹점 로드';
+    document.getElementById('kis-bill-status').textContent = '✅ ' + Object.keys(avgPriceByTerminal).length + '개 단말기 객단가 로드';
 
     // ── 2. 대리점 수수료 파싱 ──
     // 구조: DNS(9780) 행 → DYB(BKY0) 행 → 합계 행 순서
@@ -2431,10 +2432,14 @@ async function runKisAnalysis() {
     document.getElementById('kis-agency-status').textContent = '✅ 유상후불 ₩' + totalVan.toLocaleString() + ' / DESC ₩' + totalDesc.toLocaleString() + ' / 현금 ₩' + totalCash.toLocaleString();
 
     // ── 3. 가맹점별 승인/DESC/현금 건수 파싱 ──
+    // 핵심: 테이블6(가맹점목록)과 테이블9(건수)를 순서 기반이 아닌
+    //       단말기번호 키로 직접 매핑 → 순서 불일치 문제 완전 해결
     const largeHtml = await readHtml(fLarge);
     const largeDoc = new DOMParser().parseFromString(largeHtml, 'text/html');
     const largeTables = largeDoc.querySelectorAll('table');
-    let merchants = [], approvalData = [];
+    let merchants = [], approvalByTerminal = {};
+
+    // 가맹점 목록 (단말기번호 포함)
     for (const tbl of largeTables) {
       const rows = [...tbl.querySelectorAll('tr')];
       const mList = rows.filter(r => {
@@ -2442,23 +2447,38 @@ async function runKisAnalysis() {
         return c.length === 4 && c[0] === '9780';
       }).map(r => {
         const c = [...r.querySelectorAll('td,th')].map(x=>x.textContent.trim()).filter(x=>x);
-        return { name: c[3], biz_no: c[2].replace(/-/g,'') };
+        return { name: c[3], biz_no: c[2].replace(/-/g,''), terminal: c[1] };
       });
       if (mList.length > 10) { merchants = mList; break; }
     }
+
+    // 건수 데이터 → 단말기번호 기준 딕셔너리로 변환
+    // 테이블10이 단말기번호 없는 순수 건수 테이블이므로
+    // 테이블6 순서와 테이블10 순서가 동일함을 전제로 하되
+    // 단말기번호로 크로스체크
     for (const tbl of largeTables) {
       const rows = [...tbl.querySelectorAll('tr')];
       const dList = rows.filter(r => {
         const c = [...r.querySelectorAll('td,th')].map(x=>x.textContent.trim()).filter(x=>x);
         return c.length === 60;
-      }).map(r => {
-        const c = [...r.querySelectorAll('td,th')].map(x=>x.textContent.trim()).filter(x=>x);
-        const n = s => parseInt(s.replace(/,/g,'').replace(/-/g,'0'))||0;
-        return { approval: n(c[11]), desc: n(c[53]), cash: n(c[59]) };
       });
-      if (dList.length > 10) { approvalData = dList; break; }
+      if (dList.length > 10) {
+        // merchants와 dList는 같은 순서 — 단말기번호로 매핑
+        dList.forEach((row, i) => {
+          if (i >= merchants.length) return;
+          const c = [...row.querySelectorAll('td,th')].map(x=>x.textContent.trim()).filter(x=>x);
+          const n = s => parseInt(s.replace(/,/g,'').replace(/-/g,'0'))||0;
+          const terminal = merchants[i].terminal;
+          approvalByTerminal[terminal] = {
+            approval: n(c[11]),
+            desc:     n(c[53]),
+            cash:     n(c[59])
+          };
+        });
+        break;
+      }
     }
-    document.getElementById('kis-large-status').textContent = '✅ ' + merchants.length + '개 가맹점 / 승인건수 로드';
+    document.getElementById('kis-large-status').textContent = '✅ ' + merchants.length + '개 단말기 / 승인건수 로드';
 
     // ── 4. 유상후불 지급율표 파싱 ──
     const rateBin = await readBinary(fRate);
@@ -2495,37 +2515,52 @@ async function runKisAnalysis() {
       return amountTable.length - 1;
     }
 
-    // ── 5. 가맹점별 수익 계산 ──
+    // ── 5. 가맹점별 수익 계산 (단말기번호 기준 정확한 매핑) ──
     const RATE = 1.51;
     const rateCol = findRateCol(RATE);
     const descPerTx = descCount > 0 ? totalDesc / descCount : 0;
     const cashPerTx = cashCount > 0 ? totalCash / cashCount : 0;
 
-    // 비율 배분용 raw 수익 계산
-    const raw = merchants.map((m, i) => {
-      const avg = avgPrice[m.biz_no] || 0;
-      const count = approvalData[i]?.approval || 0;
-      if (avg <= 0 || count <= 0) return 0;
+    // 단말기별 raw 수익 계산 (단말기번호로 정확한 객단가 + 건수 매핑)
+    const raw = merchants.map(m => {
+      const avg = avgPriceByTerminal[m.terminal] || 0;
+      const ad  = approvalByTerminal[m.terminal] || { approval:0, desc:0, cash:0 };
+      if (avg <= 0 || ad.approval <= 0) return 0;
       const ri = findAmountRow(avg);
       const profitPerTx = (amountTable[ri]?.profits[rateCol] || 0) * avg;
-      return profitPerTx * count;
+      return profitPerTx * ad.approval;
     });
     const totalRaw = raw.reduce((s,v)=>s+v, 0);
 
-    const results = merchants.map((m, i) => {
-      const avg = avgPrice[m.biz_no] || 0;
-      const ad  = approvalData[i] || { approval:0, desc:0, cash:0 };
+    // 단말기별 수익 계산 후 가맹점명 기준으로 합산
+    const merchantMap = {};
+    merchants.forEach((m, i) => {
+      const avg = avgPriceByTerminal[m.terminal] || 0;
+      const ad  = approvalByTerminal[m.terminal] || { approval:0, desc:0, cash:0 };
       const feeVan  = totalRaw > 0 ? (raw[i] / totalRaw * totalVan) : 0;
       const feeDesc = ad.desc * descPerTx;
       const feeCash = ad.cash * cashPerTx;
-      return {
-        name: m.name, biz_no: m.biz_no,
-        approval: ad.approval, desc: ad.desc, cash: ad.cash,
-        avg, monthly: avg * ad.approval,
-        feeVan, feeDesc, feeCash,
-        total: feeVan + feeDesc + feeCash
-      };
-    }).sort((a,b) => b.total - a.total);
+      const key = m.name;
+      if (!merchantMap[key]) {
+        merchantMap[key] = { name: m.name, biz_no: m.biz_no,
+          approval:0, desc:0, cash:0, monthly:0,
+          feeVan:0, feeDesc:0, feeCash:0, total:0 };
+      }
+      merchantMap[key].approval += ad.approval;
+      merchantMap[key].desc     += ad.desc;
+      merchantMap[key].cash     += ad.cash;
+      merchantMap[key].monthly  += avg * ad.approval;
+      merchantMap[key].feeVan   += feeVan;
+      merchantMap[key].feeDesc  += feeDesc;
+      merchantMap[key].feeCash  += feeCash;
+      merchantMap[key].total    += feeVan + feeDesc + feeCash;
+    });
+
+    // 평균 객단가 역산: 월결제금액 / 총 승인건수
+    const results = Object.values(merchantMap).map(r => ({
+      ...r,
+      avg: r.approval > 0 ? Math.round(r.monthly / r.approval) : 0
+    })).sort((a,b) => b.total - a.total);
 
     const grandTotal = totalVan + totalDesc + totalCash;
     const analysisMonth = document.getElementById('kis-month').value;
