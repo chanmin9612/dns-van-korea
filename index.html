@@ -2453,17 +2453,16 @@ async function runKisAnalysis() {
     }
 
     // 건수 데이터 → 단말기번호 기준 딕셔너리로 변환
-    // 테이블10이 단말기번호 없는 순수 건수 테이블이므로
-    // 테이블6 순서와 테이블10 순서가 동일함을 전제로 하되
-    // 단말기번호로 크로스체크
+    // 핵심: 60컬럼 행이 정확히 가맹점 수(merchants.length)와 일치하는 테이블 선택
+    // (합계행 포함된 테이블은 행 수가 더 많으므로 제외)
     for (const tbl of largeTables) {
       const rows = [...tbl.querySelectorAll('tr')];
       const dList = rows.filter(r => {
         const c = [...r.querySelectorAll('td,th')].map(x=>x.textContent.trim()).filter(x=>x);
         return c.length === 60;
       });
-      if (dList.length > 10) {
-        // merchants와 dList는 같은 순서 — 단말기번호로 매핑
+      // 정확히 가맹점 수와 일치하는 테이블만 사용 (합계행 포함 테이블 제외)
+      if (dList.length === merchants.length) {
         dList.forEach((row, i) => {
           if (i >= merchants.length) return;
           const c = [...row.querySelectorAll('td,th')].map(x=>x.textContent.trim()).filter(x=>x);
