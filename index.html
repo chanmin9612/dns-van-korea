@@ -361,7 +361,24 @@ async function renderDashboard() {
       ? '전월 대비 ' + kisArrow
       : (kisTotal > 0 ? kisMonth + ' 정산' : '정산 데이터 없음');
 
-    let html = '<div class="metrics">' +
+    // 이번 달 기준 '지난달' 정산 데이터가 저장돼 있는지 확인 → 없으면 업로드 리마인더 배너
+    const targetMonth = (() => {
+      const d = new Date(); d.setMonth(d.getMonth() - 1);
+      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    })();
+    const reminderBanner = (window._kisLatestMonth !== targetMonth) ? `
+      <div style="background:#fff8e8;border:1px solid #f0d080;border-radius:10px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:20px">📂</span>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#92400e">${targetMonth} KIS 정산 파일을 아직 업로드하지 않았어요</div>
+            <div style="font-size:11px;color:#92400e;margin-top:2px">매달 초 BILLING 사이트에서 파일을 받아 업로드해주세요</div>
+          </div>
+        </div>
+        <button class="btn btn-sm" style="background:#1F3864;color:#C6F432;border-color:#1F3864" onclick="loadPage('revenue')">지금 업로드하기</button>
+      </div>` : '';
+
+    let html = reminderBanner + '<div class="metrics">' +
       '<div class="metric"><div class="metric-label">진행 중 업무</div><div class="metric-value">' + activeTasks.length + '</div><div class="metric-sub">설치 ' + install + ' · 수리 ' + repair + ' · 소모품 ' + supply + '</div></div>' +
       '<div class="metric ' + (urgentCS.length>0?'alert':'') + '"><div class="metric-label">미처리 CS</div><div class="metric-value">' + openCS.length + '</div><div class="metric-sub">긴급 ' + urgentCS.length + '건</div></div>' +
       '<div class="metric ' + (lowStock.length>0?'alert':'') + '"><div class="metric-label">소모품 재고 부족</div><div class="metric-value">' + lowStock.length + '</div><div class="metric-sub">안전재고 이하</div></div>' +
@@ -1612,6 +1629,8 @@ const OPERATION_DATA = {
         { text: '활성 · 휴면 · 이탈위험 분류, DNS 태그', tag: '', done: false },
         { text: 'DNS 결제 마진율 확인 (토스 · KIS 정산 기준)', tag: '', done: true },
         { text: '이탈위험 명단 추출 (결제 끊긴 곳)', tag: 'urgent', done: false },
+        { text: 'KIS 본사에 BKY0 대리점 정산파일(평균객단가·승인건수) 요청', tag: 'urgent', done: false },
+        { text: 'BKY0 파일 수령 후 DNS 시스템에 반영, 155개 가맹점 전체 매칭', tag: 'sys', done: false },
       ]},
       { label: '3주차', items: [
         { text: 'DNS 가맹점 · 정산 모듈 점검 · 버그 수정', tag: 'sys', done: false },
@@ -2472,7 +2491,7 @@ async function renderRevenueKis() {
     <div style="padding:16px">
       ${savedBanner}
       <div style="background:#f0f4ff;border-radius:8px;padding:14px;margin-bottom:16px;font-size:13px;color:#444;line-height:1.8">
-        KIS 대리점 사이트에서 아래 3개 파일을 다운로드 후 업로드해주세요.<br>
+        KIS 대리점 사이트(BILLING)에서 아래 3개 파일을 다운로드 후 업로드해주세요.<br>
         <span style="color:#1F3864;font-weight:600">① 평균객단가 파일</span> — Bill_Merchant_Month_Fee_Excel.xls<br>
         <span style="color:#1F3864;font-weight:600">② 대리점 수수료 파일</span> — Agency_Fee_Tran_Statement_Excel.xls<br>
         <span style="color:#1F3864;font-weight:600">③ 가맹점별 승인건수 파일</span> — LargeStore_Tran_Statement_Excel.xls<br>
