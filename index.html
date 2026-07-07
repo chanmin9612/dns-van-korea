@@ -2430,9 +2430,10 @@ async function renderRevenueKis() {
     savedMonths = [...new Set((data||[]).map(r => r.month))];
   } catch(e) {}
 
-  // 현재 선택된 조회 월 (없으면 가장 최근 저장 월)
-  if (!window._kisViewMonth && savedMonths.length > 0) {
-    window._kisViewMonth = savedMonths[0];
+  // 현재 선택된 조회 월 — 항상 Supabase 저장 목록 기준으로 검증
+  // 캐시된 월이 저장 목록에 없으면(삭제된 경우) 최신 월로 초기화
+  if (!window._kisViewMonth || !savedMonths.includes(window._kisViewMonth)) {
+    window._kisViewMonth = savedMonths.length > 0 ? savedMonths[0] : null;
   }
 
   const monthOpts = savedMonths.map(m =>
@@ -2470,7 +2471,8 @@ async function renderRevenueKis() {
       <div style="margin-bottom:14px;display:flex;align-items:center;gap:12px;background:#fff8e8;border:1px solid #f0d080;border-radius:8px;padding:10px 14px">
         <span style="font-size:13px;font-weight:600;color:#1F3864;white-space:nowrap">📅 정산 월 선택</span>
         <input type="month" id="kis-month" class="form-input" style="max-width:180px;font-size:13px"
-          value="${(()=>{const d=new Date();d.setMonth(d.getMonth()-1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')})()}"/>
+          value="${window._kisUploadMonth || (()=>{const d=new Date();d.setMonth(d.getMonth()-1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')})()}"
+          onchange="window._kisUploadMonth=this.value"/>
         <span style="font-size:12px;color:#888">업로드할 KIS 파일의 정산 월을 선택해주세요</span>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
@@ -2588,31 +2590,42 @@ async function runKisAnalysis() {
     document.getElementById('kis-bill-status').textContent = '✅ ' + Object.keys(avgPriceByTerminal).length + '개 단말기 객단가 로드';
 
     // ── 2. 대리점 수수료 파싱 ──
-    // 합계 행 식별: cells[22](총합계)가 가장 큰 행 = 전체 대리점 합산행
+    // 모든 테이블의 모든 23컬럼 행을 수집 후 cells[22](총합계)가 가장 큰 단 하나의 행 선택
     const agencyHtml = await readHtml(fAgency);
     const agencyDoc = new DOMParser().parseFromString(agencyHtml, 'text/html');
     const agencyTables = agencyDoc.querySelectorAll('table');
     let totalVan = 0, totalDesc = 0, totalCash = 0, descCount = 0, cashCount = 0;
-    let bestTotal = 0;
+
+    // 전체 테이블에서 23컬럼 행 전부 수집 (중복 제거용 Set)
+    const seen = new Set();
+    let bestTotal = 0, bestRow = null;
     for (const tbl of agencyTables) {
-      const rows = [...tbl.querySelectorAll('tr')];
-      for (const row of rows) {
+      for (const row of tbl.querySelectorAll('tr')) {
         const cells = [...row.querySelectorAll('td,th')].map(c => c.textContent.trim()).filter(c=>c);
         if (cells.length !== 23) continue;
+        const key = cells.join('|');
+        if (seen.has(key)) continue; // 중복 행 건너뜀
+        seen.add(key);
         const n = s => parseInt(s.replace(/,/g,'').replace(/-/g,'0'))||0;
-        const rowTotal = n(cells[22]); // 총합계 컬럼
-        if (rowTotal > bestTotal) {   // 가장 큰 총합계 행 = 전체 합계 행
-          bestTotal  = rowTotal;
-          totalVan   = n(cells[4]);
-          descCount  = n(cells[11]) + n(cells[12]) + n(cells[13]) + n(cells[14]);
-          totalDesc  = n(cells[15]);
-          cashCount  = n(cells[20]);
-          totalCash  = n(cells[21]);
+        const rowTotal = n(cells[22]);
+        if (rowTotal > bestTotal) {
+          bestTotal = rowTotal;
+          bestRow = cells;
         }
       }
-      if (bestTotal > 0) break;
     }
-    document.getElementById('kis-agency-status').textContent = '✅ 유상후불 ₩' + totalVan.toLocaleString() + ' / DESC ₩' + totalDesc.toLocaleString() + ' / 현금 ₩' + totalCash.toLocaleString();
+    if (bestRow) {
+      const n = s => parseInt(s.replace(/,/g,'').replace(/-/g,'0'))||0;
+      totalVan   = n(bestRow[4]);
+      descCount  = n(bestRow[11]) + n(bestRow[12]) + n(bestRow[13]) + n(bestRow[14]);
+      totalDesc  = n(bestRow[15]);
+      cashCount  = n(bestRow[20]);
+      totalCash  = n(bestRow[21]);
+    }
+    document.getElementById('kis-agency-status').textContent =
+      bestTotal > 0
+        ? '✅ 유상후불 ₩' + totalVan.toLocaleString() + ' / DESC ₩' + totalDesc.toLocaleString() + ' / 현금 ₩' + totalCash.toLocaleString()
+        : '❌ 합계 행을 찾지 못했습니다';
 
     // ── 3. 가맹점별 승인/DESC/현금 건수 파싱 ──
     // 핵심: 테이블6(가맹점목록)과 테이블9(건수)를 순서 기반이 아닌
@@ -2917,6 +2930,7 @@ async function saveKisToSupabase(month) {
   // 저장 후 캐시 초기화 → 다음 조회 시 항상 Supabase에서 최신 데이터 로드
   window._kisResult = null;
   window._kisViewMonth = month;
+  window._kisUploadMonth = month;  // 업로드 폼 월도 동기화
   // 결과 화면 Supabase에서 재로드 (방금 저장한 정확한 데이터 표시)
   await loadKisFromSupabase(month);
 }
