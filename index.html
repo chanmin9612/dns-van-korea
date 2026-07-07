@@ -2856,28 +2856,57 @@ function exportKisExcel() {
 
 async function saveKisToSupabase(month) {
   if (!window._kisResult) return toast('먼저 분석을 실행해주세요.', 'error');
-  if (!confirm(month + ' 정산 데이터를 Supabase에 저장할까요?\n기존 동일 월 데이터는 덮어씁니다.\n\n가맹점 관리의 월 건수·금액·위험분류도 자동 업데이트됩니다.')) return;
+  if (!confirm(month + ' 정산 데이터를 Supabase에 저장할까요?\n기존 동일 월 데이터는 덮어씁니다.')) return;
 
-  // ── 1. kis_settlement 저장 ──
-  const { error: delError } = await db.from('kis_settlement').delete().eq('month', month);
-  if (delError) return toast('기존 데이터 삭제 실패: ' + delError.message, 'error');
+  // 저장할 데이터 미리 준비 (window._kisResult 참조 전에 복사)
+  const saveData = JSON.parse(JSON.stringify(
+    window._kisResult.results.filter(r => r.total > 0)
+  ));
+  const saveMonth = month;
 
-  const rows = window._kisResult.results.filter(r=>r.total>0).map(r => ({
-    month, merchant_name: r.name, biz_no: r.biz_no,
-    approval_count: r.approval, desc_count: r.desc, cash_count: r.cash,
-    avg_amount: Math.round(r.avg), monthly_amount: Math.round(r.monthly),
-    fee_van: Math.round(r.feeVan), fee_desc: Math.round(r.feeDesc),
-    fee_cash: Math.round(r.feeCash), fee_total: Math.round(r.total)
+  toast('저장 중... 잠시만 기다려주세요.');
+
+  // ── 1. 기존 데이터 삭제 ──
+  const { error: delError } = await db.from('kis_settlement')
+    .delete().eq('month', saveMonth);
+  if (delError) return toast('삭제 실패: ' + delError.message, 'error');
+
+  // 삭제 후 잠깐 대기 (DB 반영 시간)
+  await new Promise(r => setTimeout(r, 500));
+
+  // ── 2. 새 데이터 insert (50건씩) ──
+  const rows = saveData.map(r => ({
+    month: saveMonth,
+    merchant_name: r.name,
+    biz_no: r.biz_no,
+    approval_count: r.approval,
+    desc_count: r.desc,
+    cash_count: r.cash,
+    avg_amount: Math.round(r.avg),
+    monthly_amount: Math.round(r.monthly),
+    fee_van: Math.round(r.feeVan),
+    fee_desc: Math.round(r.feeDesc),
+    fee_cash: Math.round(r.feeCash),
+    fee_total: Math.round(r.total)
   }));
-  const { error } = await db.from('kis_settlement').insert(rows);
-  if (error) {
-    if (error.code === '42P01') return toast('kis_settlement 테이블을 먼저 생성해주세요.', 'error');
-    return toast('저장 실패: ' + error.message, 'error');
+
+  for (let i = 0; i < rows.length; i += 50) {
+    const chunk = rows.slice(i, i + 50);
+    const { error } = await db.from('kis_settlement').insert(chunk);
+    if (error) return toast('저장 실패: ' + error.message, 'error');
   }
 
-  // ── 2. 전월 데이터 로드 (위험분류 판단용) ──
+  // 저장 확인
+  await new Promise(r => setTimeout(r, 300));
+  const { data: check } = await db.from('kis_settlement')
+    .select('id').eq('month', saveMonth).limit(1);
+  if (!check || check.length === 0) {
+    return toast('저장 확인 실패 — 다시 시도해주세요.', 'error');
+  }
+
+  // ── 3. 가맹점 자동 업데이트 ──
   const prevMonth = (() => {
-    const d = new Date(month + '-01');
+    const d = new Date(saveMonth + '-01');
     d.setMonth(d.getMonth() - 1);
     return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
   })();
@@ -2886,11 +2915,8 @@ async function saveKisToSupabase(month) {
   const prevMap = {};
   (prevData||[]).forEach(r => { prevMap[r.merchant_name] = r.approval_count || 0; });
 
-  // ── 3. merchants 테이블 자동 업데이트 ──
-  // 사업자번호 기준 매칭 (이름 불일치 문제 방지), 없으면 이름으로 fallback
-  const { data: merchantList } = await db.from('merchants').select('id,name,biz_no,risk_level');
-  const merchantByBiz = {};
-  const merchantByName = {};
+  const { data: merchantList } = await db.from('merchants').select('id,name,biz_no');
+  const merchantByBiz = {}, merchantByName = {};
   (merchantList||[]).forEach(m => {
     const biz = (m.biz_no||'').replace(/-/g,'').trim();
     if (biz) merchantByBiz[biz] = m;
@@ -2898,41 +2924,29 @@ async function saveKisToSupabase(month) {
   });
 
   let updateCount = 0, skipCount = 0;
-  for (const r of window._kisResult.results) {
+  for (const r of saveData) {
     if (r.approval <= 0) continue;
-
-    // 사업자번호 우선 매칭, 없으면 이름으로 fallback
-    const bizKey = (r.biz_no||'').replace(/-/g,'').trim();
-    const merchant = merchantByBiz[bizKey] || merchantByName[r.name];
+    const merchant = merchantByBiz[(r.biz_no||'').replace(/-/g,'').trim()] || merchantByName[r.name];
     if (!merchant) { skipCount++; continue; }
-
-    // 위험분류 자동 판단
-    const prevApproval = prevMap[r.name] || 0;
-    const dropPct = prevApproval > 0
-      ? (prevApproval - r.approval) / prevApproval * 100 : 0;
-    let risk_level = '정상';
-    if (r.approval === 0) risk_level = '휴면';
-    else if (prevApproval > 0 && dropPct >= 30) risk_level = '이탈위험';
-
+    const prev = prevMap[r.name] || 0;
+    const drop = prev > 0 ? (prev - r.approval) / prev * 100 : 0;
+    const risk_level = r.approval === 0 ? '휴면' : (prev > 0 && drop >= 30) ? '이탈위험' : '정상';
     const { error: upErr } = await db.from('merchants').update({
-      monthly_count:  r.approval,
+      monthly_count: r.approval,
       monthly_amount: Math.round(r.monthly),
       risk_level,
       survey_done: true
     }).eq('id', merchant.id);
-
     if (!upErr) updateCount++;
   }
 
-  const skipMsg = skipCount > 0 ? ` / 미매칭 ${skipCount}곳 (가맹점 관리에 미등록)` : '';
-  toast(`${month} 저장 완료 — KIS ${rows.length}건 / 가맹점 ${updateCount}곳 업데이트${skipMsg}`);
+  const skipMsg = skipCount > 0 ? ` / 미매칭 ${skipCount}곳` : '';
+  toast(`${saveMonth} 저장 완료 — ${rows.length}건 / 가맹점 ${updateCount}곳 업데이트${skipMsg}`);
 
-  // 저장 후 캐시 초기화 → 다음 조회 시 항상 Supabase에서 최신 데이터 로드
   window._kisResult = null;
-  window._kisViewMonth = month;
-  window._kisUploadMonth = month;  // 업로드 폼 월도 동기화
-  // 결과 화면 Supabase에서 재로드 (방금 저장한 정확한 데이터 표시)
-  await loadKisFromSupabase(month);
+  window._kisViewMonth = saveMonth;
+  window._kisUploadMonth = saveMonth;
+  await loadKisFromSupabase(saveMonth);
 }
 
 async function deleteKisMonth(month) {
