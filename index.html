@@ -2322,6 +2322,12 @@ function renderRevenueKis() {
         <span style="color:#1F3864;font-weight:600">③ 가맹점별 승인건수 파일</span> — LargeStore_Tran_Statement_Excel.xls<br>
         <span style="color:#C6F432;background:#1F3864;border-radius:4px;padding:2px 6px;font-size:11px;margin-left:4px">유상후불 지급율표 (.xlsx)</span>도 함께 업로드해주세요.
       </div>
+      <div style="margin-bottom:14px;display:flex;align-items:center;gap:12px;background:#fff8e8;border:1px solid #f0d080;border-radius:8px;padding:10px 14px">
+        <span style="font-size:13px;font-weight:600;color:#1F3864;white-space:nowrap">📅 정산 월 선택</span>
+        <input type="month" id="kis-month" class="form-input" style="max-width:180px;font-size:13px"
+          value="${(()=>{const d=new Date();d.setMonth(d.getMonth()-1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')})()}"/>
+        <span style="font-size:12px;color:#888">업로드할 KIS 파일의 정산 월을 선택해주세요</span>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
         <div>
           <label style="font-size:12px;font-weight:600;color:#1F3864;display:block;margin-bottom:4px">① 평균객단가 (.xls)</label>
@@ -2394,29 +2400,33 @@ async function runKisAnalysis() {
     document.getElementById('kis-bill-status').textContent = '✅ ' + Object.keys(avgPrice).length + '개 가맹점 로드';
 
     // ── 2. 대리점 수수료 파싱 ──
+    // 구조: DNS(9780) 행 → DYB(BKY0) 행 → 합계 행 순서
+    // 합계 행 = 23컬럼 행 중 마지막 → 전체 대리점 합산값
     const agencyHtml = await readHtml(fAgency);
     const agencyDoc = new DOMParser().parseFromString(agencyHtml, 'text/html');
     const agencyTables = agencyDoc.querySelectorAll('table');
     let totalVan = 0, totalDesc = 0, totalCash = 0, descCount = 0, cashCount = 0;
     for (const tbl of agencyTables) {
       const rows = [...tbl.querySelectorAll('tr')];
-      // 합계 행: 23개 컬럼, 첫 번째 셀이 숫자(17,609 등)
-      for (const row of rows) {
+      // 23컬럼 행을 모두 수집 후 마지막 행이 합계
+      const dataRows23 = rows.filter(row => {
         const cells = [...row.querySelectorAll('td,th')].map(c => c.textContent.trim()).filter(c=>c);
-        if (cells.length === 23) {
-          const n = s => parseInt(s.replace(/,/g,'').replace(/-/g,'0'))||0;
-          const candidate = n(cells[3]); // 합계건수
-          if (candidate > 1000) { // 합계 행 식별
-            totalVan  = n(cells[4]);
-            descCount = n(cells[11]) + n(cells[12]) + n(cells[13]) + n(cells[14]);
-            totalDesc = n(cells[15]);
-            cashCount = n(cells[20]);
-            totalCash = n(cells[21]);
-            break;
-          }
-        }
+        if (cells.length !== 23) return false;
+        const n = s => parseInt(s.replace(/,/g,'').replace(/-/g,'0'))||0;
+        return n(cells[3]) > 100; // 건수가 있는 행만
+      });
+      if (dataRows23.length > 0) {
+        // 마지막 행 = 합계 행 (DNS + DYB + ... 전체 합산)
+        const lastRow = dataRows23[dataRows23.length - 1];
+        const cells = [...lastRow.querySelectorAll('td,th')].map(c => c.textContent.trim()).filter(c=>c);
+        const n = s => parseInt(s.replace(/,/g,'').replace(/-/g,'0'))||0;
+        totalVan  = n(cells[4]);
+        descCount = n(cells[11]) + n(cells[12]) + n(cells[13]) + n(cells[14]);
+        totalDesc = n(cells[15]);
+        cashCount = n(cells[20]);
+        totalCash = n(cells[21]);
+        break;
       }
-      if (totalVan > 0) break;
     }
     document.getElementById('kis-agency-status').textContent = '✅ 유상후불 ₩' + totalVan.toLocaleString() + ' / DESC ₩' + totalDesc.toLocaleString() + ' / 현금 ₩' + totalCash.toLocaleString();
 
@@ -2518,10 +2528,8 @@ async function runKisAnalysis() {
     }).sort((a,b) => b.total - a.total);
 
     const grandTotal = totalVan + totalDesc + totalCash;
-    const analysisMonth = (() => {
-      const d = new Date(); d.setMonth(d.getMonth()-1);
-      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
-    })();
+    const analysisMonth = document.getElementById('kis-month').value;
+    if (!analysisMonth) return toast('정산 월을 선택해주세요.', 'error');
 
     window._kisResult = { results, totalVan, totalDesc, totalCash, grandTotal, analysisMonth };
     renderKisResult(window._kisResult);
