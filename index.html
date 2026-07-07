@@ -802,11 +802,13 @@ function renderInventoryTab() {
     const supplies = window._supplies || [];
     const lowStock = supplies.filter(s => s.stock <= s.min_stock);
 
+    const 감열지 = supplies.find(s => s.name === '감열지');
+    const 어댑터 = supplies.find(s => s.name === '어댑터');
     html += '<div class="metrics">' +
       '<div class="metric"><div class="metric-label">소모품 종류</div><div class="metric-value">' + supplies.length + '종</div></div>' +
       '<div class="metric ' + (lowStock.length>0?'alert':'') + '"><div class="metric-label">재고 부족</div><div class="metric-value">' + lowStock.length + '종</div><div class="metric-sub">안전재고 이하</div></div>' +
-      '<div class="metric"><div class="metric-label">감열지</div><div class="metric-value">' + ((supplies.find(s=>s.name==='감열지')||{}).stock||0) + '롤</div></div>' +
-      '<div class="metric"></div>' +
+      '<div class="metric"><div class="metric-label">감열지</div><div class="metric-value" style="color:#1F3864;">' + (감열지 ? 감열지.stock : 0) + '롤</div><div class="metric-sub">안전재고 ' + (감열지 ? 감열지.min_stock : 0) + '롤</div></div>' +
+      '<div class="metric"><div class="metric-label">어댑터</div><div class="metric-value" style="color:#1F3864;">' + (어댑터 ? 어댑터.stock : 0) + '개</div></div>' +
       '</div>';
 
     html += '<div class="card"><div class="card-header"><div class="card-title">소모품 재고 현황</div>' +
@@ -1098,6 +1100,7 @@ async function renderMerchants() {
     if (error) throw error;
     window._merchants = (data||[]).slice().sort((a,b) => a.name.localeCompare(b.name,'ko'));
     window._merchantSearch = window._merchantSearch || '';
+    window._merchantFilter = window._merchantFilter || '전체';
 
     contentEl.innerHTML =
       '<div class="card">' +
@@ -1137,15 +1140,22 @@ async function renderMerchants() {
   } catch(e) { document.getElementById('content').innerHTML = dbError(e); }
 }
 
+function setMerchantFilter(f) { window._merchantFilter = f; renderMerchantRows(); }
+
 function renderMerchantRows() {
   const q = (window._merchantSearch || '').toLowerCase().trim();
+  const filter = window._merchantFilter || '전체';
   const all = window._merchants || [];
-  const filtered = q ? all.filter(m =>
+  let filtered = q ? all.filter(m =>
     (m.name||'').toLowerCase().includes(q) ||
     (m.biz_no||'').includes(q) ||
     (m.phone||'').includes(q) ||
     (m.address||'').toLowerCase().includes(q)
   ) : all;
+  if (filter === '미조사') filtered = filtered.filter(m => !m.survey_done);
+  else if (filter === '조사완료') filtered = filtered.filter(m => m.survey_done);
+  else if (filter === '이탈위험') filtered = filtered.filter(m => m.risk_level === '이탈위험');
+  else if (filter === '휴면') filtered = filtered.filter(m => m.risk_level === '휴면');
 
   const countEl = document.getElementById('merchant-result-count');
   if (countEl) countEl.textContent = q ? '검색결과 ' + filtered.length + '곳' : '';
@@ -1161,14 +1171,22 @@ function renderMerchantRows() {
   let rows = '';
   filtered.forEach(m => {
     const noteBtn = m.note ? '<button class="btn btn-sm" style="color:#1a56a0;border-color:#b5d4f4;" onclick="viewMerchantNote(' + m.id + ')">메모</button>' : '';
+    const riskBadge = m.risk_level === '이탈위험' ? '<span class="badge badge-red">이탈위험</span>' :
+      m.risk_level === '휴면' ? '<span class="badge badge-gray">휴면</span>' :
+      '<span class="badge badge-green">정상</span>';
+    const surveyBadge = m.survey_done ?
+      '<span style="color:#3a6000;font-size:13px;">✅</span>' :
+      '<span style="color:#ddd;font-size:13px;">○</span>';
+    const monthlyStr = m.monthly_amount > 0 ? '₩' + (m.monthly_amount/10000).toFixed(0) + '만' : '-';
     rows +=
       '<tr>' +
       '<td><strong>' + (m.name||'-') + '</strong></td>' +
       '<td style="color:#888">' + (m.biz_no||'-') + '</td>' +
       '<td>' + (m.phone||'-') + '</td>' +
-      '<td style="color:#555;font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (m.address||'-') + '</td>' +
-      '<td>' + typeBadge(m.type) + '</td>' +
-      '<td>' + merchantStatusBadge(m.status) + '</td>' +
+      '<td>' + (m.business_type ? '<span class="badge badge-navy">' + m.business_type + '</span>' : '-') + '</td>' +
+      '<td style="font-size:12px;color:#1F3864;font-weight:600;">' + monthlyStr + '</td>' +
+      '<td>' + riskBadge + '</td>' +
+      '<td style="text-align:center;">' + surveyBadge + '</td>' +
       '<td style="display:flex;gap:4px;">' + noteBtn +
         '<button class="btn btn-sm" onclick="editMerchant(' + m.id + ')">편집</button>' +
         '<button class="btn btn-sm btn-danger" onclick="deleteMerchant(' + m.id + ')">삭제</button>' +
@@ -1177,7 +1195,7 @@ function renderMerchantRows() {
 
   wrap.innerHTML =
     '<table><thead><tr>' +
-    '<th>가맹점명</th><th>사업자번호</th><th>연락처</th><th>주소</th><th>구분</th><th>상태</th><th></th>' +
+    '<th>가맹점명</th><th>사업자번호</th><th>연락처</th><th>업종</th><th>월결제</th><th>분류</th><th>조사</th><th></th>' +
     '</tr></thead><tbody id="merchant-list">' + rows + '</tbody></table>';
 }
 
@@ -1201,14 +1219,40 @@ function merchantForm(m = {}) {
     '<div class="form-group"><label class="form-label">상태</label><select id="m-status" class="form-select">' +
     ['운영중','계약중','해지'].map(s => '<option ' + (m.status===s?'selected':'') + '>' + s + '</option>').join('') +
     '</select></div>' +
-    '</div><div class="form-group"><label class="form-label">메모</label><textarea id="m-note" class="form-textarea">' + (m.note||'') + '</textarea></div>';
+    '</div>' +
+    '<div style="background:#f7f9ff;border:1px solid #e0e8f5;border-radius:8px;padding:12px;margin-bottom:12px;">' +
+    '<div style="font-size:11px;font-weight:600;color:#1F3864;margin-bottom:10px;">📊 결제규모 조사 (KIS 확인값)</div>' +
+    '<div class="form-row">' +
+    '<div class="form-group"><label class="form-label">업종</label><select id="m-btype" class="form-select">' +
+    ['','학원','F&B','소매','서비스업','기타'].map(s => '<option ' + ((m.business_type||'')==s?'selected':'') + '>' + s + '</option>').join('') +
+    '</select></div>' +
+    '<div class="form-group"><label class="form-label">위험 분류</label><select id="m-risk" class="form-select">' +
+    ['정상','이탈위험','휴면'].map(s => '<option ' + ((m.risk_level||'정상')==s?'selected':'') + '>' + s + '</option>').join('') +
+    '</select></div>' +
+    '</div><div class="form-row">' +
+    '<div class="form-group"><label class="form-label">월 결제 건수</label><input id="m-mcount" class="form-input" type="number" value="' + (m.monthly_count||'') + '" placeholder="예: 150"/></div>' +
+    '<div class="form-group"><label class="form-label">월 결제 금액 (원)</label><input id="m-mamount" class="form-input" type="number" value="' + (m.monthly_amount||'') + '" placeholder="예: 5000000"/></div>' +
+    '</div>' +
+    '<div style="display:flex;align-items:center;gap:8px;">' +
+    '<input type="checkbox" id="m-survey" ' + (m.survey_done?'checked':'') + ' style="width:16px;height:16px;accent-color:#1F3864;cursor:pointer;"/>' +
+    '<label for="m-survey" style="font-size:12px;color:#555;cursor:pointer;">조사 완료</label>' +
+    '</div>' +
+    '</div>' +
+    '<div class="form-group"><label class="form-label">메모</label><textarea id="m-note" class="form-textarea">' + (m.note||'') + '</textarea></div>';
 }
 
 function openAddMerchant() {
   openModal('가맹점 추가', merchantForm(), async () => {
     const name = v('m-name');
     if (!name) return toast('가맹점명을 입력해주세요.', 'error');
-    const { error } = await db.from('merchants').insert({ name, biz_no: v('m-biz'), phone: v('m-phone'), address: v('m-addr'), type: v('m-type'), status: v('m-status'), note: v('m-note') });
+    const { error } = await db.from('merchants').insert({
+      name, biz_no: v('m-biz'), phone: v('m-phone'), address: v('m-addr'),
+      type: v('m-type'), status: v('m-status'), note: v('m-note'),
+      business_type: v('m-btype'), risk_level: v('m-risk'),
+      monthly_count: parseInt(v('m-mcount'))||0,
+      monthly_amount: parseInt(v('m-mamount'))||0,
+      survey_done: document.getElementById('m-survey')?.checked || false
+    });
     if (error) return toast('저장 실패: ' + error.message, 'error');
     toast('추가되었습니다.'); closeModal(); renderMerchants();
   });
@@ -1224,7 +1268,14 @@ async function editMerchant(id) {
   openModal('가맹점 편집', merchantForm(m), async () => {
     const name = v('m-name');
     if (!name) return toast('가맹점명을 입력해주세요.', 'error');
-    const { error } = await db.from('merchants').update({ name, biz_no: v('m-biz'), phone: v('m-phone'), address: v('m-addr'), type: v('m-type'), status: v('m-status'), note: v('m-note') }).eq('id', id);
+    const { error } = await db.from('merchants').update({
+      name, biz_no: v('m-biz'), phone: v('m-phone'), address: v('m-addr'),
+      type: v('m-type'), status: v('m-status'), note: v('m-note'),
+      business_type: v('m-btype'), risk_level: v('m-risk'),
+      monthly_count: parseInt(v('m-mcount'))||0,
+      monthly_amount: parseInt(v('m-mamount'))||0,
+      survey_done: document.getElementById('m-survey')?.checked || false
+    }).eq('id', id);
     if (error) return toast('저장 실패: ' + error.message, 'error');
     toast('수정되었습니다.'); closeModal(); renderMerchants();
   });
