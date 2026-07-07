@@ -326,6 +326,7 @@ function categoryBadge(c) {
 // =============================================
 async function renderDashboard() {
   try {
+    await loadKisLatest();
     const [{ data: tasks }, { data: cs }, { data: devices }, { data: supplies }, { data: orders }] = await Promise.all([
       db.from('tasks').select('*'),
       db.from('cs_tickets').select('*'),
@@ -343,16 +344,32 @@ async function renderDashboard() {
     document.getElementById('badge-tasks').textContent = activeTasks.length;
     document.getElementById('badge-cs').textContent = openCS.length;
 
-    // 업무 유형별
     const install = activeTasks.filter(t=>t.type==='설치').length;
-    const repair = activeTasks.filter(t=>t.type==='수리').length;
-    const supply = activeTasks.filter(t=>t.type==='소모품').length;
+    const repair  = activeTasks.filter(t=>t.type==='수리').length;
+    const supply  = activeTasks.filter(t=>t.type==='소모품').length;
+
+    // KIS 수익 카드
+    const kisTotal   = window._kisLatestTotal || 0;
+    const kisPrev    = window._kisPrevTotal   || 0;
+    const kisDiff    = kisTotal - kisPrev;
+    const kisDiffPct = kisPrev > 0 ? Math.round(kisDiff / kisPrev * 100) : 0;
+    const kisMonth   = window._kisLatestMonth || '-';
+    const kisArrow   = kisDiff >= 0
+      ? '<span style="color:#0a6644">▲ ' + kisDiffPct + '%</span>'
+      : '<span style="color:#b91c1c">▼ ' + Math.abs(kisDiffPct) + '%</span>';
+    const kisSubText = kisPrev > 0
+      ? '전월 대비 ' + kisArrow
+      : (kisTotal > 0 ? kisMonth + ' 정산' : '정산 데이터 없음');
 
     let html = '<div class="metrics">' +
       '<div class="metric"><div class="metric-label">진행 중 업무</div><div class="metric-value">' + activeTasks.length + '</div><div class="metric-sub">설치 ' + install + ' · 수리 ' + repair + ' · 소모품 ' + supply + '</div></div>' +
       '<div class="metric ' + (urgentCS.length>0?'alert':'') + '"><div class="metric-label">미처리 CS</div><div class="metric-value">' + openCS.length + '</div><div class="metric-sub">긴급 ' + urgentCS.length + '건</div></div>' +
       '<div class="metric ' + (lowStock.length>0?'alert':'') + '"><div class="metric-label">소모품 재고 부족</div><div class="metric-value">' + lowStock.length + '</div><div class="metric-sub">안전재고 이하</div></div>' +
-      '<div class="metric"><div class="metric-label">이번 달</div><div class="metric-value">' + thisMonth() + '</div><div class="metric-sub">기준</div></div>' +
+      '<div class="metric" style="border-left:3px solid #C6F432;cursor:pointer;" onclick="loadPage(\'revenue\')">' +
+        '<div class="metric-label">KIS 정산 수익 (' + kisMonth + ')</div>' +
+        '<div class="metric-value" style="color:#1F3864;font-size:16px">₩' + kisTotal.toLocaleString() + '</div>' +
+        '<div class="metric-sub">' + kisSubText + '</div>' +
+      '</div>' +
       '</div>';
 
     html += '<div class="grid2">';
@@ -403,6 +420,7 @@ async function renderDashboard() {
 let taskFilter = '전체';
 async function renderTasks() {
   try {
+    await loadKisLatest();
     const { data, error } = await db.from('tasks').select('*').order('created_at', { ascending: false });
     if (error) throw error;
     window._tasks = data || [];
@@ -442,9 +460,15 @@ async function renderTasks() {
     else {
       html += '<table><thead><tr><th>유형</th><th>가맹점</th><th>품목</th><th>업체</th><th>방법</th><th>상태</th><th>담당자</th><th>요청일</th><th></th></tr></thead><tbody>';
       active.forEach(t => {
+        const mName = t.merchant_name || '-';
+        const kisTag = window._kisTopNames && window._kisTopNames.has(mName)
+          ? '<span style="background:#C6F432;color:#1F3864;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;margin-left:3px">TOP</span>'
+          : window._kisBotNames && window._kisBotNames.has(mName)
+          ? '<span style="background:#fee2e2;color:#b91c1c;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;margin-left:3px">LOW</span>'
+          : '';
         html += '<tr>' +
           '<td>' + taskTypeBadge(t.type) + '</td>' +
-          '<td><strong>' + (t.merchant_name||'-') + '</strong></td>' +
+          '<td><strong>' + mName + '</strong>' + kisTag + '</td>' +
           '<td>' + (t.item_name||'-') + '</td>' +
           '<td>' + (t.vendor ? '<span class="badge badge-navy">' + t.vendor + '</span>' : '-') + '</td>' +
           '<td style="color:#888">' + (t.method||'-') + '</td>' +
@@ -1101,6 +1125,7 @@ function categoryBadge(c) {
 async function renderMerchants() {
   const contentEl = document.getElementById('content');
   try {
+    await loadKisLatest();
     const { data, error } = await db.from('merchants').select('*');
     if (error) throw error;
     window._merchants = (data||[]).slice().sort((a,b) => a.name.localeCompare(b.name,'ko'));
@@ -1183,13 +1208,39 @@ function renderMerchantRows() {
       '<span style="color:#3a6000;font-size:13px;">✅</span>' :
       '<span style="color:#ddd;font-size:13px;">○</span>';
     const monthlyStr = m.monthly_amount > 0 ? '₩' + (m.monthly_amount/10000).toFixed(0) + '만' : '-';
+
+    // KIS 정산 수익 배지
+    const kisData = (window._kisMap || {})[m.name];
+    const kisPrev = (window._kisPrevMap || {})[m.name];
+    let kisBadge = '';
+    if (kisData) {
+      const fee = kisData.total;
+      kisBadge = '<span style="color:#1F3864;font-weight:700;font-size:13px">₩' + fee.toLocaleString() + '</span>';
+    }
+
+    // 수익 순위 태그
+    let rankTag = '';
+    if (window._kisTopNames && window._kisTopNames.has(m.name)) {
+      rankTag = '<span style="background:#C6F432;color:#1F3864;font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;margin-left:4px">TOP</span>';
+    }
+
+    // 이탈 위험 자동 감지: 전월 대비 건수 30% 이상 감소
+    let alertTag = '';
+    if (kisData && kisPrev && kisPrev.approval > 0) {
+      const dropPct = (kisPrev.approval - kisData.approval) / kisPrev.approval * 100;
+      if (dropPct >= 30) {
+        alertTag = '<span style="background:#fee2e2;color:#b91c1c;font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;margin-left:4px">건수↓' + Math.round(dropPct) + '%</span>';
+      }
+    }
+
     rows +=
       '<tr>' +
-      '<td><strong>' + (m.name||'-') + '</strong></td>' +
+      '<td><strong>' + (m.name||'-') + '</strong>' + rankTag + alertTag + '</td>' +
       '<td style="color:#888">' + (m.biz_no||'-') + '</td>' +
       '<td>' + (m.phone||'-') + '</td>' +
       '<td>' + (m.business_type ? '<span class="badge badge-navy">' + m.business_type + '</span>' : '-') + '</td>' +
       '<td style="font-size:12px;color:#1F3864;font-weight:600;">' + monthlyStr + '</td>' +
+      '<td>' + (kisBadge || '-') + '</td>' +
       '<td>' + riskBadge + '</td>' +
       '<td style="text-align:center;">' + surveyBadge + '</td>' +
       '<td style="display:flex;gap:4px;">' + noteBtn +
@@ -1198,9 +1249,12 @@ function renderMerchantRows() {
       '</td></tr>';
   });
 
+  const kisMonth = window._kisLatestMonth ? '(' + window._kisLatestMonth + ')' : '';
   wrap.innerHTML =
     '<table><thead><tr>' +
-    '<th>가맹점명</th><th>사업자번호</th><th>연락처</th><th>업종</th><th>월결제</th><th>분류</th><th>조사</th><th></th>' +
+    '<th>가맹점명</th><th>사업자번호</th><th>연락처</th><th>업종</th><th>월결제</th>' +
+    '<th style="color:#1F3864">KIS수익' + kisMonth + '</th>' +
+    '<th>분류</th><th>조사</th><th></th>' +
     '</tr></thead><tbody id="merchant-list">' + rows + '</tbody></table>';
 }
 
@@ -2797,6 +2851,67 @@ function exportRevenueExcel() {
   XLSX.utils.book_append_sheet(wb, ws, '매출정산');
   XLSX.writeFile(wb, '매출정산_' + today() + '.xlsx');
   toast('엑셀 저장 완료');
+}
+
+// =============================================
+// KIS 정산 데이터 공통 로더
+// =============================================
+async function loadKisLatest() {
+  // 가장 최근 월 데이터 로드 후 window._kisMap에 저장
+  try {
+    const { data } = await db.from('kis_settlement')
+      .select('month,merchant_name,approval_count,fee_total')
+      .order('month', { ascending: false });
+    if (!data || data.length === 0) return;
+
+    // 최근 2개 월 추출
+    const months = [...new Set(data.map(r => r.month))].sort().reverse();
+    const latestMonth  = months[0];
+    const prevMonth    = months[1] || null;
+
+    // 최근 월 가맹점별 맵
+    const latestMap = {};
+    data.filter(r => r.month === latestMonth).forEach(r => {
+      latestMap[r.merchant_name] = {
+        approval: r.approval_count || 0,
+        total:    r.fee_total || 0
+      };
+    });
+
+    // 전월 가맹점별 맵
+    const prevMap = {};
+    if (prevMonth) {
+      data.filter(r => r.month === prevMonth).forEach(r => {
+        prevMap[r.merchant_name] = {
+          approval: r.approval_count || 0,
+          total:    r.fee_total || 0
+        };
+      });
+    }
+
+    // 최근 월 합계
+    const latestTotal = data.filter(r => r.month === latestMonth)
+      .reduce((s,r) => s + (r.fee_total||0), 0);
+    const prevTotal = prevMonth
+      ? data.filter(r => r.month === prevMonth).reduce((s,r) => s + (r.fee_total||0), 0)
+      : 0;
+
+    // 수익 순위 계산
+    const sorted = Object.entries(latestMap).sort((a,b) => b[1].total - a[1].total);
+    const topNames = new Set(sorted.slice(0, Math.ceil(sorted.length * 0.2)).map(e => e[0]));
+    const botNames = new Set(sorted.slice(-Math.ceil(sorted.length * 0.2)).map(e => e[0]));
+
+    window._kisMap = latestMap;
+    window._kisPrevMap = prevMap;
+    window._kisLatestMonth = latestMonth;
+    window._kisPrevMonth = prevMonth;
+    window._kisLatestTotal = latestTotal;
+    window._kisPrevTotal = prevTotal;
+    window._kisTopNames = topNames;
+    window._kisBotNames = botNames;
+  } catch(e) {
+    window._kisMap = {};
+  }
 }
 
 // =============================================
