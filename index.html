@@ -2711,8 +2711,11 @@ async function saveKisToSupabase(month) {
   if (!window._kisResult) return toast('먼저 분석을 실행해주세요.', 'error');
   if (!confirm(month + ' 정산 데이터를 Supabase에 저장할까요?\n기존 동일 월 데이터는 덮어씁니다.')) return;
 
-  // 기존 동일 월 삭제 후 재저장
-  await db.from('kis_settlement').delete().eq('month', month);
+  // 기존 동일 월 완전 삭제 (await로 완료 보장)
+  const { error: delError } = await db.from('kis_settlement').delete().eq('month', month);
+  if (delError) return toast('기존 데이터 삭제 실패: ' + delError.message, 'error');
+
+  // 삭제 완료 후 신규 데이터 insert
   const rows = window._kisResult.results.filter(r=>r.total>0).map(r => ({
     month, merchant_name: r.name, biz_no: r.biz_no,
     approval_count: r.approval, desc_count: r.desc, cash_count: r.cash,
@@ -2722,7 +2725,6 @@ async function saveKisToSupabase(month) {
   }));
   const { error } = await db.from('kis_settlement').insert(rows);
   if (error) {
-    // 테이블 없을 경우 안내
     if (error.code === '42P01') return toast('kis_settlement 테이블을 먼저 생성해주세요.', 'error');
     return toast('저장 실패: ' + error.message, 'error');
   }
