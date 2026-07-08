@@ -1184,7 +1184,7 @@ async function renderMerchants() {
 
     const filterTabs = `
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
-        ${['전체','우수','건수급감','관리대상','이탈위험','휴면'].map(f => {
+        ${['전체','우수','건수급감','관리대상','이탈위험','휴면','폐업'].map(f => {
           const active = (window._merchantFilter||'전체') === f;
           const color = f==='우수' ? 'color:#0a6644;border-color:#b5ddc8;background:#f0fff4'
             : f==='건수급감' ? 'color:#92400e;border-color:#f0d080;background:#fff8e8'
@@ -1252,6 +1252,7 @@ function renderMerchantRows() {
   else if (filter === '관리대상') filtered = filtered.filter(m =>
     (window._kisBotNames && window._kisBotNames.has(m.name)) || m.risk_level === '관리대상');
   else if (filter === '휴면') filtered = filtered.filter(m => m.risk_level === '휴면');
+  else if (filter === '폐업') filtered = filtered.filter(m => m.risk_level === '폐업');
   else if (filter === '우수') filtered = filtered.filter(m => window._kisTopNames && window._kisTopNames.has(m.name));
   else if (filter === '건수급감') filtered = filtered.filter(m => {
     const cur = (window._kisMap||{})[m.name];
@@ -1285,7 +1286,8 @@ function renderMerchantRows() {
   filtered.forEach(m => {
     const noteBtn = m.note ? '<button class="btn btn-sm" style="color:#1a56a0;border-color:#b5d4f4;" onclick="viewMerchantNote(' + m.id + ')">메모</button>' : '';
     // 이상 있을 때만 배지 표시 (정상은 노이즈이므로 생략)
-    const riskBadge = m.risk_level === '이탈위험' ? '<span class="badge badge-red">이탈위험</span>' :
+    const riskBadge = m.risk_level === '폐업' ? '<span style="background:#1a1a1a;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;">폐업</span>' :
+      m.risk_level === '이탈위험' ? '<span class="badge badge-red">이탈위험</span>' :
       m.risk_level === '휴면' ? '<span class="badge badge-gray">휴면</span>' : '-';
     const monthlyStr = m.monthly_amount > 0 ? '₩' + (m.monthly_amount/10000).toFixed(0) + '만' : '-';
 
@@ -1367,7 +1369,7 @@ function merchantForm(m = {}) {
     ['','학원','F&B','소매','서비스업','기타'].map(s => '<option ' + ((m.business_type||'')==s?'selected':'') + '>' + s + '</option>').join('') +
     '</select></div>' +
     '<div class="form-group"><label class="form-label">위험 분류</label><select id="m-risk" class="form-select">' +
-    ['정상','관리대상','이탈위험','휴면'].map(s => '<option ' + ((m.risk_level||'정상')==s?'selected':'') + '>' + s + '</option>').join('') +
+    ['정상','관리대상','이탈위험','휴면','폐업'].map(s => '<option ' + ((m.risk_level||'정상')==s?'selected':'') + '>' + s + '</option>').join('') +
     '</select></div>' +
     '</div><div class="form-row">' +
     '<div class="form-group"><label class="form-label">월 결제 건수</label><input id="m-mcount" class="form-input" type="number" value="' + (m.monthly_count||'') + '" placeholder="예: 150"/></div>' +
@@ -2921,7 +2923,7 @@ async function saveKisToSupabase(month) {
   const prevMap = {};
   (prevData||[]).forEach(r => { prevMap[r.merchant_name] = r.approval_count || 0; });
 
-  const { data: merchantList } = await db.from('merchants').select('id,name,biz_no');
+  const { data: merchantList } = await db.from('merchants').select('id,name,biz_no,risk_level');
   const merchantByBiz = {}, merchantByName = {};
   (merchantList||[]).forEach(m => {
     const biz = (m.biz_no||'').replace(/-/g,'').trim();
@@ -2952,7 +2954,10 @@ async function saveKisToSupabase(month) {
     }
     const prev = prevMap[r.name] || 0;
     const drop = prev > 0 ? (prev - r.approval) / prev * 100 : 0;
-    const risk_level = r.approval === 0 ? '휴면' : (prev > 0 && drop >= 30) ? '이탈위험' : '정상';
+    // '폐업' 수동 지정된 가맹점은 자동 분류로 덮어쓰지 않음 (건수/금액만 갱신)
+    const risk_level = merchant.risk_level === '폐업'
+      ? '폐업'
+      : r.approval === 0 ? '휴면' : (prev > 0 && drop >= 30) ? '이탈위험' : '정상';
     const { error: upErr } = await db.from('merchants').update({
       monthly_count: r.approval,
       monthly_amount: Math.round(r.monthly),
