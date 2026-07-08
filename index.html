@@ -545,6 +545,7 @@ let taskFilter = '전체';
 async function renderTasks() {
   try {
     await loadKisLatest();
+    await opLoadStateFromDB(); // 다른 기기에서 체크한 운영계획 반영
     const { data, error } = await db.from('tasks').select('*').order('created_at', { ascending: false });
     if (error) throw error;
     window._tasks = data || [];
@@ -2023,20 +2024,35 @@ const OPERATION_DATA = {
   },
 };
 
-// localStorage 키
-const OP_STORAGE_KEY = 'dns_operation_checklist';
+// 운영 계획 체크 상태 — Supabase 저장 (모든 기기 실시간 공유)
+// window._opState: 캐시(동기 조회용), DB와 항상 동기화 유지
+window._opState = window._opState || {};
+window._opStateLoaded = false;
 
+async function opLoadStateFromDB() {
+  try {
+    const { data } = await db.from('operation_state').select('key,done');
+    window._opState = {};
+    (data || []).forEach(r => { window._opState[r.key] = r.done; });
+    window._opStateLoaded = true;
+  } catch(e) { window._opStateLoaded = true; }
+}
+
+// 동기 조회 (캐시 사용) — 화면 렌더링 중 즉시 필요한 곳에서 사용
 function opLoadState() {
-  try { return JSON.parse(localStorage.getItem(OP_STORAGE_KEY) || '{}'); } catch(e) { return {}; }
+  return window._opState || {};
 }
-function opSaveState(state) {
-  try { localStorage.setItem(OP_STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
-}
-function opToggle(month, weekIdx, itemIdx) {
-  const state = opLoadState();
+
+async function opToggle(month, weekIdx, itemIdx) {
   const key = month + '_' + weekIdx + '_' + itemIdx;
-  state[key] = !state[key];
-  opSaveState(state);
+  const newVal = !window._opState[key];
+
+  // 저장을 먼저 완료한 뒤에 화면을 다시 그려야 함
+  // (순서가 바뀌면 renderOperation의 서버 재조회가 저장 전 옛 값을 덮어써버리는 경쟁상태 발생)
+  const { error } = await db.from('operation_state').upsert({ key, done: newVal, updated_at: new Date().toISOString() });
+  if (error) { toast('저장 실패: ' + error.message, 'error'); return; }
+
+  window._opState[key] = newVal;
   renderOperation();
 }
 
@@ -2067,8 +2083,9 @@ function getThisWeekTasks() {
 
 let _opCurrentMonth = null;
 
-function renderOperation() {
+async function renderOperation() {
   const contentEl = document.getElementById('content');
+  await opLoadStateFromDB(); // 다른 기기에서 체크한 내용도 반영되도록 매번 새로 로드
   const months = ['7월','8월','9월','10월','11월','12월'];
   const curMonth = _opCurrentMonth || getCurrentMonth();
   if (!months.includes(curMonth)) _opCurrentMonth = '7월';
