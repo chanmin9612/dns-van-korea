@@ -1183,14 +1183,14 @@ async function renderMerchants() {
       </div>` : '';
 
     const filterTabs = `
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+      <div id="merchant-filter-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
         ${['전체','우수','건수급감','관리대상','이탈위험','휴면','폐업'].map(f => {
           const active = (window._merchantFilter||'전체') === f;
           const color = f==='우수' ? 'color:#0a6644;border-color:#b5ddc8;background:#f0fff4'
             : f==='건수급감' ? 'color:#92400e;border-color:#f0d080;background:#fff8e8'
             : f==='관리대상' ? 'color:#991b1b;border-color:#fca5a5;background:#fef2f2'
             : 'color:#1F3864;border-color:#C6F432;background:#f9fde8';
-          return `<button class="btn btn-sm" style="${active ? color : ''}" onclick="setMerchantFilter('${f}')">${f}</button>`;
+          return `<button class="btn btn-sm" data-filter="${f}" data-color="${color.replace(/"/g,'&quot;')}" style="${active ? color : ''}" onclick="setMerchantFilter('${f}')">${f}</button>`;
         }).join('')}
       </div>`;
 
@@ -1234,7 +1234,18 @@ async function renderMerchants() {
   } catch(e) { document.getElementById('content').innerHTML = dbError(e); }
 }
 
-function setMerchantFilter(f) { window._merchantFilter = f; renderMerchantRows(); }
+function setMerchantFilter(f) {
+  window._merchantFilter = f;
+  // 탭 버튼 활성 스타일 즉시 갱신 (전체 재조회 없이)
+  const tabsWrap = document.getElementById('merchant-filter-tabs');
+  if (tabsWrap) {
+    tabsWrap.querySelectorAll('button[data-filter]').forEach(btn => {
+      const isActive = btn.getAttribute('data-filter') === f;
+      btn.setAttribute('style', isActive ? btn.getAttribute('data-color') : '');
+    });
+  }
+  renderMerchantRows();
+}
 
 function renderMerchantRows() {
   const q = (window._merchantSearch || '').toLowerCase().trim();
