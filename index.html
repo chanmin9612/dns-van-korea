@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <title>DNS. 업무 관리 시스템</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -10,7 +10,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Noto Sans KR',sans-serif;background:#f0f2f5;color:#1a1a1a;font-size:14px;}
-.app{display:flex;height:100vh;}
+.app{display:flex;height:100vh;height:100dvh;}
 
 /* Sidebar */
 .sidebar{width:210px;min-width:210px;background:#1F3864;display:flex;flex-direction:column;overflow-y:auto;}
@@ -152,15 +152,21 @@ tbody tr:hover td{background:#fafaf8;}
 .sidebar-overlay{display:none;}
 
 @media (max-width: 768px) {
+  html, body{height:auto;overflow-x:hidden;}
+  .app{height:auto;display:block;}
+  .main{overflow:visible;}
+  .content{overflow-y:visible;height:auto;}
+
   .hamburger-btn{
     display:flex;align-items:center;justify-content:center;
     width:34px;height:34px;border:none;background:none;font-size:20px;
     cursor:pointer;color:#1F3864;margin-right:8px;
   }
   .sidebar{
-    position:fixed;top:0;left:0;height:100vh;z-index:1500;
+    position:fixed;top:0;left:0;height:100vh;height:100dvh;z-index:1500;
     transform:translateX(-100%);transition:transform .2s ease;
     box-shadow:4px 0 20px rgba(0,0,0,.2);
+    padding-bottom:env(safe-area-inset-bottom);
   }
   .sidebar.open{transform:translateX(0);}
   .sidebar-overlay{
@@ -170,7 +176,7 @@ tbody tr:hover td{background:#fafaf8;}
   .main{width:100%;}
   .topbar{padding:0 14px;height:50px;}
   .topbar-title{font-size:14px;}
-  .content{padding:14px;}
+  .content{padding:14px;padding-bottom:calc(24px + env(safe-area-inset-bottom));}
   .card{padding:14px;}
 
   .metrics{grid-template-columns:1fr 1fr;gap:8px;}
@@ -197,7 +203,7 @@ tbody tr:hover td{background:#fafaf8;}
 <body>
 
 <!-- 로그인 게이트 -->
-<div id="login-gate" style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#1F3864;">
+<div id="login-gate" style="display:flex;align-items:center;justify-content:center;min-height:100vh;min-height:100dvh;background:#1F3864;">
   <div style="background:#fff;border-radius:14px;padding:40px 36px;width:100%;max-width:360px;box-shadow:0 8px 30px rgba(0,0,0,.08);">
     <div style="text-align:center;margin-bottom:28px;">
       <div style="font-family:serif;font-size:32px;font-weight:700;color:#1F3864;">DNS<span style="color:#C6F432;">.</span></div>
