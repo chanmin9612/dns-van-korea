@@ -357,9 +357,11 @@ async function renderDashboard() {
     const kisArrow   = kisDiff >= 0
       ? '<span style="color:#0a6644">▲ ' + kisDiffPct + '%</span>'
       : '<span style="color:#b91c1c">▼ ' + Math.abs(kisDiffPct) + '%</span>';
-    const kisSubText = kisPrev > 0
+    const kisMargin  = window._kisLatestMargin || 0;
+    const kisSubText = (kisPrev > 0
       ? '전월 대비 ' + kisArrow
-      : (kisTotal > 0 ? kisMonth + ' 정산' : '정산 데이터 없음');
+      : (kisTotal > 0 ? kisMonth + ' 정산' : '정산 데이터 없음'))
+      + (kisMargin > 0 ? ' · 마진율 ' + kisMargin.toFixed(3) + '%' : '');
 
     // 이번 달 기준 '지난달' 정산 데이터가 저장돼 있는지 확인 → 없으면 업로드 리마인더 배너
     const targetMonth = (() => {
@@ -3037,9 +3039,9 @@ async function deleteKisMonth(month) {
 // ── 탭3: 월별 추이 ──────────────────────────
 async function renderRevenueHistory() {
   try {
-    // Supabase kis_settlement에서 월별 집계
+    // Supabase kis_settlement에서 월별 집계 (monthly_amount = 실제 결제금액, 마진율 계산용)
     const { data: kisData } = await db.from('kis_settlement')
-      .select('month,fee_van,fee_desc,fee_cash,fee_total')
+      .select('month,fee_van,fee_desc,fee_cash,fee_total,monthly_amount')
       .order('month', { ascending: true });
 
     const { data: manualData } = await db.from('revenue')
@@ -3049,13 +3051,14 @@ async function renderRevenueHistory() {
     // 월별 집계
     const monthMap = {};
     (kisData||[]).forEach(r => {
-      if (!monthMap[r.month]) monthMap[r.month] = { van:0, desc:0, cash:0, manual:0 };
+      if (!monthMap[r.month]) monthMap[r.month] = { van:0, desc:0, cash:0, manual:0, settleAmount:0 };
       monthMap[r.month].van  += r.fee_van || 0;
       monthMap[r.month].desc += r.fee_desc || 0;
       monthMap[r.month].cash += r.fee_cash || 0;
+      monthMap[r.month].settleAmount += r.monthly_amount || 0;
     });
     (manualData||[]).forEach(r => {
-      if (!monthMap[r.month]) monthMap[r.month] = { van:0, desc:0, cash:0, manual:0 };
+      if (!monthMap[r.month]) monthMap[r.month] = { van:0, desc:0, cash:0, manual:0, settleAmount:0 };
       monthMap[r.month].manual += (r.van_revenue||0) + (r.pg_revenue||0);
     });
 
@@ -3088,17 +3091,20 @@ async function renderRevenueHistory() {
     html += '</div>';
 
     // 테이블
-    html += '<table style="margin-top:8px"><thead><tr><th>월</th><th>유상후불</th><th>DESC</th><th>현금</th><th>수동입력</th><th style="color:#1F3864">합계</th></tr></thead><tbody>';
+    html += '<table style="margin-top:8px"><thead><tr><th>월</th><th>결제금액</th><th>유상후불</th><th>DESC</th><th>현금</th><th>수동입력</th><th style="color:#1F3864">합계</th><th style="color:#7c3aed">마진율</th></tr></thead><tbody>';
     months.slice().reverse().forEach(m => {
       const d = monthMap[m];
       const total = d.van + d.desc + d.cash + d.manual;
+      const margin = d.settleAmount > 0 ? (total / d.settleAmount * 100) : 0;
       html += `<tr>
         <td>${m}</td>
+        <td style="text-align:right;color:#888">₩${Math.round(d.settleAmount).toLocaleString()}</td>
         <td style="text-align:right;color:#0a6644">₩${d.van.toLocaleString()}</td>
         <td style="text-align:right;color:#1a56a0">₩${d.desc.toLocaleString()}</td>
         <td style="text-align:right;color:#7c5cbf">₩${d.cash.toLocaleString()}</td>
         <td style="text-align:right;color:#888">₩${d.manual.toLocaleString()}</td>
         <td style="text-align:right;font-weight:700;color:#1F3864">₩${total.toLocaleString()}</td>
+        <td style="text-align:right;font-weight:700;color:#7c3aed">${margin.toFixed(3)}%</td>
       </tr>`;
     });
     html += '</tbody></table></div></div>';
@@ -3161,7 +3167,7 @@ async function loadKisLatest() {
   // 가장 최근 월 데이터 로드 후 window._kisMap에 저장
   try {
     const { data } = await db.from('kis_settlement')
-      .select('month,merchant_name,approval_count,fee_total')
+      .select('month,merchant_name,approval_count,fee_total,monthly_amount')
       .order('month', { ascending: false });
     if (!data || data.length === 0) return;
 
@@ -3197,6 +3203,11 @@ async function loadKisLatest() {
       ? data.filter(r => r.month === prevMonth).reduce((s,r) => s + (r.fee_total||0), 0)
       : 0;
 
+    // 실제 결제 마진율 = DNS 총 수수료 / 전체 결제(정산)금액
+    const latestSettleAmount = data.filter(r => r.month === latestMonth)
+      .reduce((s,r) => s + (r.monthly_amount||0), 0);
+    const latestMargin = latestSettleAmount > 0 ? (latestTotal / latestSettleAmount * 100) : 0;
+
     // 수익 순위 계산
     const sorted = Object.entries(latestMap).sort((a,b) => b[1].total - a[1].total);
     const topNames = new Set(sorted.slice(0, Math.ceil(sorted.length * 0.2)).map(e => e[0]));
@@ -3208,6 +3219,7 @@ async function loadKisLatest() {
     window._kisPrevMonth = prevMonth;
     window._kisLatestTotal = latestTotal;
     window._kisPrevTotal = prevTotal;
+    window._kisLatestMargin = latestMargin;
     window._kisTopNames = topNames;
     window._kisBotNames = botNames;
   } catch(e) {
