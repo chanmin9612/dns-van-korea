@@ -592,7 +592,7 @@ async function openAddTask() {
       request_date: v('tk-req'), due_date: v('tk-due'), note: v('tk-note')
     });
     if (error) return toast('저장 실패: ' + error.message, 'error');
-    toast('업무가 등록되었습니다.'); closeModal(); renderTasks();
+    toast('업무가 등록되었습니다.'); closeModal(); renderTasks(); refreshBadges();
   });
 }
 
@@ -618,14 +618,14 @@ async function openEditTask(id) {
 async function completeTask(id) {
   const { error } = await db.from('tasks').update({ status: '완료', completed_date: today() }).eq('id', id);
   if (error) return toast('오류: ' + error.message, 'error');
-  toast('완료 처리되었습니다.'); renderTasks();
+  toast('완료 처리되었습니다.'); renderTasks(); refreshBadges();
 }
 
 async function deleteTask(id) {
   if (!confirm('이 업무를 삭제할까요?')) return;
   const { error } = await db.from('tasks').delete().eq('id', id);
   if (error) return toast('삭제 실패', 'error');
-  toast('삭제되었습니다.'); renderTasks();
+  toast('삭제되었습니다.'); renderTasks(); refreshBadges();
 }
 
 // =============================================
@@ -727,7 +727,7 @@ async function openAddCS() {
       manager: v('cs-manager'), due_date: v('cs-due'), resolve_desc: v('cs-resolve')
     });
     if (error) return toast('저장 실패: ' + error.message, 'error');
-    toast('CS가 접수되었습니다.'); closeModal(); renderCS();
+    toast('CS가 접수되었습니다.'); closeModal(); renderCS(); refreshBadges();
   });
 }
 
@@ -750,17 +750,33 @@ async function openEditCS(id) {
   });
 }
 
+// 사이드바 배지(업무/CS 미처리 건수)를 즉시 갱신 — 완료·삭제·등록 등 상태 변경 시마다 호출
+async function refreshBadges() {
+  try {
+    const [{ data: tasks }, { data: cs }] = await Promise.all([
+      db.from('tasks').select('id,status'),
+      db.from('cs_tickets').select('id,status'),
+    ]);
+    const activeTasks = (tasks||[]).filter(t => t.status !== '완료').length;
+    const openCS = (cs||[]).filter(c => c.status !== '완료').length;
+    const badgeTasks = document.getElementById('badge-tasks');
+    const badgeCS = document.getElementById('badge-cs');
+    if (badgeTasks) badgeTasks.textContent = activeTasks;
+    if (badgeCS) badgeCS.textContent = openCS;
+  } catch(e) {}
+}
+
 async function completeCS(id) {
   const { error } = await db.from('cs_tickets').update({ status: '완료', resolved_date: today() }).eq('id', id);
   if (error) return toast('오류', 'error');
-  toast('완료 처리되었습니다.'); renderCS();
+  toast('완료 처리되었습니다.'); renderCS(); refreshBadges();
 }
 
 async function deleteCS(id) {
   if (!confirm('이 CS를 삭제할까요?')) return;
   const { error } = await db.from('cs_tickets').delete().eq('id', id);
   if (error) return toast('삭제 실패', 'error');
-  toast('삭제되었습니다.'); renderCS();
+  toast('삭제되었습니다.'); renderCS(); refreshBadges();
 }
 
 function exportCSExcel() {
@@ -3014,6 +3030,7 @@ async function saveKisToSupabase(month) {
   const skipMsg = skipCount > 0 ? ` / 미매칭 ${skipCount}곳` : '';
   const csMsg = csCreatedCount > 0 ? ` / CS 자동등록 ${csCreatedCount}건` : '';
   toast(`${saveMonth} 저장 완료 — ${rows.length}건 / 가맹점 ${updateCount}곳 업데이트${csMsg}${skipMsg}`);
+  if (csCreatedCount > 0) refreshBadges();
 
   // 미매칭 가맹점 목록을 화면에 표시 (수익 큰 순으로 정렬)
   window._kisUnmatched = unmatchedList.sort((a,b) => b.total - a.total);
