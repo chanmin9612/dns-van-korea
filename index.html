@@ -144,6 +144,54 @@ tbody tr:hover td{background:#fafaf8;}
 .stock-fill{height:6px;border-radius:3px;}
 
 .loading{text-align:center;padding:48px;color:#aaa;font-size:13px;}
+
+/* ============================================= */
+/* 모바일 반응형 (768px 이하) */
+/* ============================================= */
+.hamburger-btn{display:none;}
+.sidebar-overlay{display:none;}
+
+@media (max-width: 768px) {
+  .hamburger-btn{
+    display:flex;align-items:center;justify-content:center;
+    width:34px;height:34px;border:none;background:none;font-size:20px;
+    cursor:pointer;color:#1F3864;margin-right:8px;
+  }
+  .sidebar{
+    position:fixed;top:0;left:0;height:100vh;z-index:1500;
+    transform:translateX(-100%);transition:transform .2s ease;
+    box-shadow:4px 0 20px rgba(0,0,0,.2);
+  }
+  .sidebar.open{transform:translateX(0);}
+  .sidebar-overlay{
+    display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1400;
+  }
+  .sidebar-overlay.open{display:block;}
+  .main{width:100%;}
+  .topbar{padding:0 14px;height:50px;}
+  .topbar-title{font-size:14px;}
+  .content{padding:14px;}
+  .card{padding:14px;}
+
+  .metrics{grid-template-columns:1fr 1fr;gap:8px;}
+  .metric{padding:12px;}
+  .metric-value{font-size:18px;}
+
+  .grid2,.grid3{grid-template-columns:1fr;}
+  .form-row,.form-row3{grid-template-columns:1fr;}
+
+  table{display:block;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;}
+
+  .modal{width:100vw;max-width:100vw;height:100vh;max-height:100vh;border-radius:0;padding:16px;}
+  .modal-overlay.open{align-items:stretch;justify-content:stretch;}
+
+  .card-header{flex-wrap:wrap;gap:8px;}
+  .card-header .btn{font-size:11px;padding:5px 9px;}
+
+  .toast{left:14px;right:14px;bottom:14px;text-align:center;}
+
+  #login-gate > div{padding:32px 24px;margin:16px;}
+}
 </style>
 </head>
 <body>
@@ -201,13 +249,17 @@ tbody tr:hover td{background:#fafaf8;}
 <!-- Main -->
 <div class="main">
   <div class="topbar">
-    <div class="topbar-title" id="topbar-title">대시보드</div>
+    <div style="display:flex;align-items:center;">
+      <button class="hamburger-btn" onclick="toggleSidebar()">☰</button>
+      <div class="topbar-title" id="topbar-title">대시보드</div>
+    </div>
     <div class="topbar-actions" id="topbar-actions"></div>
   </div>
   <div class="content" id="content">
     <div class="loading">⏳ 불러오는 중...</div>
   </div>
 </div>
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
 </div>
 
 <!-- Modal -->
@@ -254,12 +306,25 @@ const pageConfig = {
 };
 
 document.querySelectorAll('.nav-item').forEach(el => {
+  if (!el.dataset.page) return; // 로그아웃 등 data-page 없는 항목은 제외
   el.addEventListener('click', () => {
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     el.classList.add('active');
     loadPage(el.dataset.page);
+    closeSidebarOnMobile();
   });
 });
+
+function toggleSidebar() {
+  document.querySelector('.sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+}
+function closeSidebarOnMobile() {
+  if (window.innerWidth <= 768) {
+    document.querySelector('.sidebar').classList.remove('open');
+    document.getElementById('sidebar-overlay').classList.remove('open');
+  }
+}
 
 function loadPage(page) {
   const cfg = pageConfig[page];
