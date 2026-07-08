@@ -1184,7 +1184,7 @@ async function renderMerchants() {
 
     const filterTabs = `
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
-        ${['전체','우수','건수급감','관리대상','이탈위험','휴면'].map(f => {
+        ${['전체','우수','건수급감','관리대상','확인필요','이탈위험','휴면'].map(f => {
           const active = (window._merchantFilter||'전체') === f;
           const color = f==='우수' ? 'color:#0a6644;border-color:#b5ddc8;background:#f0fff4'
             : f==='건수급감' ? 'color:#92400e;border-color:#f0d080;background:#fff8e8'
@@ -1249,6 +1249,7 @@ function renderMerchantRows() {
   if (filter === '미조사') filtered = filtered.filter(m => !m.survey_done);
   else if (filter === '조사완료') filtered = filtered.filter(m => m.survey_done);
   else if (filter === '이탈위험') filtered = filtered.filter(m => m.risk_level === '이탈위험');
+  else if (filter === '확인필요') filtered = filtered.filter(m => m.risk_level === '확인필요');
   else if (filter === '휴면') filtered = filtered.filter(m => m.risk_level === '휴면');
   else if (filter === '우수') filtered = filtered.filter(m => window._kisTopNames && window._kisTopNames.has(m.name));
   else if (filter === '관리대상') filtered = filtered.filter(m => window._kisBotNames && window._kisBotNames.has(m.name));
@@ -1285,6 +1286,7 @@ function renderMerchantRows() {
     const noteBtn = m.note ? '<button class="btn btn-sm" style="color:#1a56a0;border-color:#b5d4f4;" onclick="viewMerchantNote(' + m.id + ')">메모</button>' : '';
     // 이상 있을 때만 배지 표시 (정상은 노이즈이므로 생략)
     const riskBadge = m.risk_level === '이탈위험' ? '<span class="badge badge-red">이탈위험</span>' :
+      m.risk_level === '확인필요' ? '<span style="background:#fff3d6;color:#92400e;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;">확인필요</span>' :
       m.risk_level === '휴면' ? '<span class="badge badge-gray">휴면</span>' : '-';
     const monthlyStr = m.monthly_amount > 0 ? '₩' + (m.monthly_amount/10000).toFixed(0) + '만' : '-';
 
@@ -1366,7 +1368,7 @@ function merchantForm(m = {}) {
     ['','학원','F&B','소매','서비스업','기타'].map(s => '<option ' + ((m.business_type||'')==s?'selected':'') + '>' + s + '</option>').join('') +
     '</select></div>' +
     '<div class="form-group"><label class="form-label">위험 분류</label><select id="m-risk" class="form-select">' +
-    ['정상','이탈위험','휴면'].map(s => '<option ' + ((m.risk_level||'정상')==s?'selected':'') + '>' + s + '</option>').join('') +
+    ['정상','확인필요','이탈위험','휴면'].map(s => '<option ' + ((m.risk_level||'정상')==s?'selected':'') + '>' + s + '</option>').join('') +
     '</select></div>' +
     '</div><div class="form-row">' +
     '<div class="form-group"><label class="form-label">월 결제 건수</label><input id="m-mcount" class="form-input" type="number" value="' + (m.monthly_count||'') + '" placeholder="예: 150"/></div>' +
