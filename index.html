@@ -3522,17 +3522,22 @@ async function checkAuth() {
 let _opRealtimeChannel = null;
 function subscribeOperationRealtime() {
   if (_opRealtimeChannel) return; // 중복 구독 방지
+  console.log('[Realtime] 구독 시도 중...');
   _opRealtimeChannel = db.channel('operation_state_live')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'operation_state' }, (payload) => {
+      console.log('[Realtime] 이벤트 수신:', payload);
       const row = payload.new && payload.new.key ? payload.new : payload.old;
-      if (!row || !row.key) return;
+      if (!row || !row.key) { console.log('[Realtime] row 없음, 무시'); return; }
       window._opState[row.key] = (payload.eventType === 'DELETE') ? undefined : row.done;
       // 지금 보고 있는 페이지가 운영계획·업무현황이면 즉시 다시 그리기
       const activePage = document.querySelector('.nav-item.active')?.dataset.page;
+      console.log('[Realtime] 현재 페이지:', activePage, '→ 상태 갱신:', row.key, '=', row.done);
       if (activePage === 'operation') renderOperation();
       else if (activePage === 'tasks') renderTasks();
     })
-    .subscribe();
+    .subscribe((status, err) => {
+      console.log('[Realtime] 구독 상태:', status, err || '');
+    });
 }
 
 async function doLogin() {
