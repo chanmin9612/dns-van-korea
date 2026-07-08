@@ -646,16 +646,41 @@ async function renderCS() {
 
     const filtered = csFilter === '전체' ? window._cs : window._cs.filter(c => c.status === csFilter);
 
+    // 우선순위(긴급>보통>낮음) → 처리기한 임박순 자동 정렬
+    const prioWeight = { '긴급': 0, '보통': 1, '낮음': 2 };
+    filtered.sort((a, b) => {
+      const pw = (prioWeight[a.priority]??1) - (prioWeight[b.priority]??1);
+      if (pw !== 0) return pw;
+      const da = a.due_date || '9999', db_ = b.due_date || '9999';
+      return da.localeCompare(db_);
+    });
+
+    // 중복 티켓 감지: 같은 가맹점명으로 미완료 티켓이 2건 이상인 경우
+    const openCountByMerchant = {};
+    window._cs.filter(c => c.status !== '완료').forEach(c => {
+      openCountByMerchant[c.merchant_name] = (openCountByMerchant[c.merchant_name]||0) + 1;
+    });
+    const dupMerchants = Object.entries(openCountByMerchant).filter(([,n]) => n > 1);
+
     html += '<div class="card"><div class="card-header"><div class="card-title">CS 목록 (' + filtered.length + '건)</div>' +
       '<button class="btn btn-sm btn-excel" onclick="exportCSExcel()">📊 엑셀 저장</button></div>';
+
+    if (dupMerchants.length > 0) {
+      html += '<div style="background:#fff3d6;border:1px solid #f0d080;border-radius:8px;padding:10px 14px;margin:0 16px 12px;font-size:13px;color:#92400e">' +
+        '⚠ 같은 가맹점에 미완료 티켓이 여러 건 있어요: ' +
+        dupMerchants.map(([n,c]) => n + '(' + c + '건)').join(', ') +
+        ' — 통합·정리 후 진행하시면 좋아요.</div>';
+    }
 
     if (filtered.length === 0) { html += emptyState('해당하는 CS가 없습니다'); }
     else {
       html += '<table><thead><tr><th>우선순위</th><th>가맹점</th><th>채널</th><th>이슈유형</th><th>내용</th><th>담당자</th><th>처리기한</th><th>상태</th><th></th></tr></thead><tbody>';
       filtered.forEach(c => {
+        const dupCount = c.status !== '완료' ? (openCountByMerchant[c.merchant_name]||0) : 0;
+        const dupBadge = dupCount > 1 ? '<span style="background:#fee2e2;color:#b91c1c;font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;margin-left:4px">중복 ' + dupCount + '건</span>' : '';
         html += '<tr>' +
           '<td>' + priorityBadge(c.priority) + '</td>' +
-          '<td><strong>' + (c.merchant_name||'-') + '</strong></td>' +
+          '<td><strong>' + (c.merchant_name||'-') + '</strong>' + dupBadge + '</td>' +
           '<td><span class="badge badge-gray">' + (c.channel||'-') + '</span></td>' +
           '<td>' + (c.issue_type||'-') + '</td>' +
           '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#555">' + (c.issue_desc||'-') + '</td>' +
