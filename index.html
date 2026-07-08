@@ -1271,6 +1271,8 @@ function renderMerchantRows() {
     });
   }
 
+  window._merchantsFiltered = filtered; // 현재 필터 결과를 엑셀 저장에서 사용
+
   const countEl = document.getElementById('merchant-result-count');
   if (countEl) countEl.textContent = q ? '검색결과 ' + filtered.length + '곳' : '';
 
@@ -1445,12 +1447,25 @@ function viewMerchantNote(id) {
 }
 
 function exportMerchantsExcel() {
-  const data = (window._merchants||[]).map(m => ({ 가맹점명: m.name, 사업자번호: m.biz_no, 연락처: m.phone, 주소: m.address, 구분: m.type, 상태: m.status, 메모: m.note }));
+  const list = window._merchantsFiltered || window._merchants || [];
+  const filterLabel = window._merchantFilter || '전체';
+  const kisMonth = window._kisLatestMonth || '';
+  const data = list.map(m => {
+    const kis = (window._kisMap || {})[m.name];
+    return {
+      가맹점명: m.name, 사업자번호: m.biz_no, 연락처: m.phone, 주소: m.address,
+      구분: m.type, 상태: m.status,
+      ['월결제(KIS ' + kisMonth + ')']: m.monthly_amount || 0,
+      ['KIS수익(' + kisMonth + ')']: kis ? kis.total : '',
+      분류: m.risk_level || '정상',
+      메모: m.note
+    };
+  });
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '가맹점');
-  XLSX.writeFile(wb, '가맹점목록_' + today() + '.xlsx');
-  toast('엑셀 저장 완료');
+  XLSX.writeFile(wb, '가맹점목록_' + filterLabel + '_' + today() + '.xlsx');
+  toast(filterLabel + ' 필터 기준 ' + list.length + '곳 저장 완료');
 }
 
 function triggerMerchantUpload() {
