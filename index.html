@@ -3511,10 +3511,28 @@ async function checkAuth() {
     document.getElementById('login-gate').style.display = 'none';
     document.getElementById('app-root').style.display = '';
     loadPage('dashboard');
+    subscribeOperationRealtime();
   } else {
     document.getElementById('login-gate').style.display = 'flex';
     document.getElementById('app-root').style.display = 'none';
   }
+}
+
+// 운영 계획 체크 상태 실시간 구독 — 어느 기기에서 체크하든 다른 기기 화면에 즉시 반영
+let _opRealtimeChannel = null;
+function subscribeOperationRealtime() {
+  if (_opRealtimeChannel) return; // 중복 구독 방지
+  _opRealtimeChannel = db.channel('operation_state_live')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'operation_state' }, (payload) => {
+      const row = payload.new && payload.new.key ? payload.new : payload.old;
+      if (!row || !row.key) return;
+      window._opState[row.key] = (payload.eventType === 'DELETE') ? undefined : row.done;
+      // 지금 보고 있는 페이지가 운영계획·업무현황이면 즉시 다시 그리기
+      const activePage = document.querySelector('.nav-item.active')?.dataset.page;
+      if (activePage === 'operation') renderOperation();
+      else if (activePage === 'tasks') renderTasks();
+    })
+    .subscribe();
 }
 
 async function doLogin() {
