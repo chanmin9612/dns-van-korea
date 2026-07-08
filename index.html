@@ -147,7 +147,29 @@ tbody tr:hover td{background:#fafaf8;}
 </style>
 </head>
 <body>
-<div class="app">
+
+<!-- 로그인 게이트 -->
+<div id="login-gate" style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f5f5f3;">
+  <div style="background:#fff;border-radius:14px;padding:40px 36px;width:100%;max-width:360px;box-shadow:0 8px 30px rgba(0,0,0,.08);">
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="font-family:serif;font-size:32px;font-weight:700;color:#1F3864;">DNS<span style="color:#C6F432;">.</span></div>
+      <div style="font-size:13px;color:#888;margin-top:4px;">업무 관리 시스템</div>
+    </div>
+    <div id="login-error" style="display:none;background:#fef2f2;color:#b91c1c;font-size:12px;padding:8px 12px;border-radius:6px;margin-bottom:12px;"></div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:12px;font-weight:600;color:#1F3864;display:block;margin-bottom:4px;">이메일</label>
+      <input id="login-email" type="email" class="form-input" style="width:100%;" placeholder="이메일 입력" onkeydown="if(event.key==='Enter')doLogin()"/>
+    </div>
+    <div style="margin-bottom:20px;">
+      <label style="font-size:12px;font-weight:600;color:#1F3864;display:block;margin-bottom:4px;">비밀번호</label>
+      <input id="login-password" type="password" class="form-input" style="width:100%;" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter')doLogin()"/>
+    </div>
+    <button class="btn btn-primary" style="width:100%;" onclick="doLogin()">로그인</button>
+    <div style="font-size:11px;color:#aaa;text-align:center;margin-top:16px;">계정 발급은 관리자에게 문의해주세요</div>
+  </div>
+</div>
+
+<div class="app" id="app-root" style="display:none;">
 
 <!-- Sidebar -->
 <nav class="sidebar">
@@ -172,6 +194,8 @@ tbody tr:hover td{background:#fafaf8;}
   <div class="nav-item" data-page="merchants"><span class="icon">🏪</span>가맹점 관리</div>
   <div class="nav-section">정산</div>
   <div class="nav-item" data-page="revenue"><span class="icon">💰</span>매출/정산</div>
+  <div style="flex:1"></div>
+  <div class="nav-item" onclick="doLogout()" style="color:#f4a3a3;cursor:pointer;"><span class="icon">🚪</span>로그아웃</div>
 </nav>
 
 <!-- Main -->
@@ -1201,12 +1225,51 @@ async function renderMerchants() {
     const topCount  = all.filter(m => window._kisTopNames && window._kisTopNames.has(m.name)).length;
     const botCount  = all.filter(m => (window._kisBotNames && window._kisBotNames.has(m.name)) || m.risk_level === '관리대상').length;
     const dropCount = all.filter(m => {
-      const cur = kisMap[m.name]; const prev = kisPrevMap[m.name];
+      const cur = getKisEntry(m, window._kisMapByBiz, kisMap);
+      const prev = getKisEntry(m, window._kisPrevMapByBiz, kisPrevMap);
       if (!cur || !prev || prev.approval <= 0) return false;
       return (prev.approval - cur.approval) / prev.approval * 100 >= 30;
     }).length;
 
+    // ── 중복 등록 감지: ①같은 사업자번호 ②이름이 매우 유사한 경우 ──
+    const dupGroups = [];
+    // ① 사업자번호 완전 일치
+    const byBiz = {};
+    all.forEach(m => {
+      const biz = (m.biz_no||'').replace(/-/g,'').trim();
+      if (!biz) return;
+      (byBiz[biz] = byBiz[biz]||[]).push(m);
+    });
+    Object.values(byBiz).filter(g => g.length > 1).forEach(g => dupGroups.push({ type: '사업자번호 동일', items: g }));
+
+    // ② 이름 정규화(괄호·공백·캠퍼스 등 접미사 제거) 후 일치
+    const normalize = (s) => (s||'')
+      .replace(/\(.*?\)/g, '').replace(/[㈜()（）]/g, '')
+      .replace(/\s/g, '')
+      .replace(/캠퍼스학원|캠퍼스|어학원|학원|센터|점/g, '')
+      .toUpperCase();
+    const byNorm = {};
+    all.forEach(m => {
+      const n = normalize(m.name);
+      if (!n || n.length < 2) return;
+      (byNorm[n] = byNorm[n]||[]).push(m);
+    });
+    Object.values(byNorm).filter(g => g.length > 1).forEach(g => {
+      // 이미 사업자번호로 잡힌 그룹과 완전히 동일하면 중복 표시 생략
+      const already = dupGroups.some(d => d.items.length === g.length && d.items.every(x => g.includes(x)));
+      if (!already) dupGroups.push({ type: '이름 유사', items: g });
+    });
+
+    const dupBanner = dupGroups.length > 0 ? `
+      <div style="background:#fff3d6;border:1px solid #f0d080;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#92400e">
+        ⚠ 중복 등록 의심 ${dupGroups.length}건 —
+        ${dupGroups.slice(0,8).map(d => `[${d.type}] ${d.items.map(x=>x.name).join(' = ')}`).join(' · ')}
+        ${dupGroups.length > 8 ? ' 외 ' + (dupGroups.length-8) + '건' : ''}
+        <br>중복이면 가맹점 관리에서 하나로 통합하고 나머지는 삭제해주세요.
+      </div>` : '';
+
     const summaryCards = kisMonth ? `
+      ${dupBanner}
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
         <div style="background:#f0fff4;border:1px solid #b5ddc8;border-radius:10px;padding:12px 14px;cursor:pointer" onclick="setMerchantFilter('우수')">
           <div style="font-size:11px;font-weight:600;color:#0a6644;margin-bottom:4px">⭐ 우수 가맹점 (TOP 20%)</div>
@@ -1223,7 +1286,7 @@ async function renderMerchants() {
           <div style="font-size:20px;font-weight:600;color:#b91c1c">${botCount}곳</div>
           <div style="font-size:11px;color:#991b1b;margin-top:2px">${kisMonth} 기준</div>
         </div>
-      </div>` : '';
+      </div>` : dupBanner;
 
     const filterTabs = `
       <div id="merchant-filter-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
@@ -1309,8 +1372,8 @@ function renderMerchantRows() {
   else if (filter === '폐업') filtered = filtered.filter(m => m.risk_level === '폐업');
   else if (filter === '우수') filtered = filtered.filter(m => window._kisTopNames && window._kisTopNames.has(m.name));
   else if (filter === '건수급감') filtered = filtered.filter(m => {
-    const cur = (window._kisMap||{})[m.name];
-    const prev = (window._kisPrevMap||{})[m.name];
+    const cur = getKisEntry(m, window._kisMapByBiz, window._kisMap);
+    const prev = getKisEntry(m, window._kisPrevMapByBiz, window._kisPrevMap);
     if (!cur || !prev || prev.approval <= 0) return false;
     return (prev.approval - cur.approval) / prev.approval * 100 >= 30;
   });
@@ -1347,9 +1410,9 @@ function renderMerchantRows() {
       m.risk_level === '휴면' ? '<span class="badge badge-gray">휴면</span>' : '-';
     const monthlyStr = m.monthly_amount > 0 ? '₩' + (m.monthly_amount/10000).toFixed(0) + '만' : '-';
 
-    // KIS 정산 수익 배지
-    const kisData = (window._kisMap || {})[m.name];
-    const kisPrev = (window._kisPrevMap || {})[m.name];
+    // KIS 정산 수익 배지 (사업자번호 우선 조회 → 이름 다른 경우도 표시됨)
+    const kisData = getKisEntry(m, window._kisMapByBiz, window._kisMap);
+    const kisPrev = getKisEntry(m, window._kisPrevMapByBiz, window._kisPrevMap);
     let kisBadge = '';
     if (kisData) {
       const fee = kisData.total;
@@ -1505,7 +1568,7 @@ function exportMerchantsExcel() {
   const filterLabel = window._merchantFilter || '전체';
   const kisMonth = window._kisLatestMonth || '';
   const data = list.map(m => {
-    const kis = (window._kisMap || {})[m.name];
+    const kis = getKisEntry(m, window._kisMapByBiz, window._kisMap);
     return {
       가맹점명: m.name, 사업자번호: m.biz_no, 연락처: m.phone, 주소: m.address,
       구분: m.type, 상태: m.status,
@@ -2817,13 +2880,61 @@ async function runKisAnalysis() {
   }
 }
 
+// 가맹점의 KIS 데이터 조회: 사업자번호 우선, 없으면 이름으로 폴백
+function getKisEntry(merchant, byBizMap, byNameMap) {
+  const biz = (merchant.biz_no || '').replace(/-/g, '').trim();
+  if (biz && byBizMap && byBizMap[biz]) return byBizMap[biz];
+  return (byNameMap || {})[merchant.name];
+}
+
+// 미매칭 KIS 가맹점을 등록된 가맹점과 즉시 연결
+async function linkUnmatchedMerchant(idx) {
+  const sel = document.getElementById('unmatch-select-' + idx);
+  const merchantId = sel ? sel.value : '';
+  if (!merchantId) return toast('연결할 가맹점을 선택해주세요.', 'error');
+
+  const entry = (window._kisUnmatched || [])[idx];
+  if (!entry) return;
+
+  const merchant = (window._merchants || []).find(m => String(m.id) === String(merchantId));
+  if (!merchant) return toast('가맹점 정보를 찾을 수 없어요.', 'error');
+
+  // 사업자번호 연결 + 이번 달 실적 즉시 반영
+  const risk_level = merchant.risk_level === '폐업' ? '폐업'
+    : (entry.approval === 0 ? '휴면' : '정상');
+  const { error } = await db.from('merchants').update({
+    biz_no: entry.biz_no || merchant.biz_no,
+    monthly_count: entry.approval,
+    monthly_amount: entry.monthly,
+    risk_level,
+    survey_done: true
+  }).eq('id', merchant.id);
+
+  if (error) return toast('연결 실패: ' + error.message, 'error');
+
+  toast(`"${merchant.name}" ↔ "${entry.name}" 연결 완료`);
+
+  // 목록에서 제거 후 카드 다시 그리기
+  window._kisUnmatched.splice(idx, 1);
+  merchant.biz_no = entry.biz_no || merchant.biz_no; // 로컬 캐시도 갱신
+  if (window._kisResult) renderKisResult(window._kisResult);
+  else if (window._kisViewMonth) loadKisFromSupabase(window._kisViewMonth);
+}
+
 function closeUnmatchedCard() {
   window._kisUnmatched = null;
   if (window._kisResult) renderKisResult(window._kisResult);
   else if (window._kisViewMonth) loadKisFromSupabase(window._kisViewMonth);
 }
 
-function renderKisResult(data) {
+async function renderKisResult(data) {
+  // 미매칭 연결 드롭다운에 필요하므로 가맹점 목록이 없으면 먼저 로드
+  if (!window._merchants || window._merchants.length === 0) {
+    try {
+      const { data: mList } = await db.from('merchants').select('*');
+      window._merchants = (mList || []).slice().sort((a,b) => a.name.localeCompare(b.name,'ko'));
+    } catch(e) {}
+  }
   const { results, totalVan, totalDesc, totalCash, grandTotal, analysisMonth } = data;
   const valid = results.filter(r => r.total > 0);
   const top5  = valid.slice(0, 5);
@@ -2832,6 +2943,9 @@ function renderKisResult(data) {
   const unmatched = window._kisUnmatched || [];
   let unmatchedHtml = '';
   if (unmatched.length > 0) {
+    const merchantOptions = (window._merchants || []).slice()
+      .sort((a,b) => a.name.localeCompare(b.name,'ko'))
+      .map(m => `<option value="${m.id}">${m.name}${m.biz_no ? ' (' + m.biz_no + ')' : ''}</option>`).join('');
     unmatchedHtml = `
     <div class="card" style="margin-top:16px;border:1px solid #f0d080;background:#fffdf5">
       <div class="card-header">
@@ -2839,15 +2953,22 @@ function renderKisResult(data) {
         <button class="btn btn-sm" onclick="closeUnmatchedCard()">닫기</button>
       </div>
       <div style="padding:8px 16px;font-size:12px;color:#92400e;margin-bottom:4px">
-        KIS 파일의 가맹점명/사업자번호가 가맹점 관리에 등록된 것과 달라서 자동 연결이 안 됐어요. 가맹점 관리에서 이름 또는 사업자번호를 확인해주세요.
+        KIS 파일의 가맹점명/사업자번호가 가맹점 관리에 등록된 것과 달라서 자동 연결이 안 됐어요. 아래에서 해당하는 등록 가맹점을 선택해 바로 연결할 수 있어요.
       </div>
       <table>
-        <thead><tr><th>KIS 파일 가맹점명</th><th>사업자번호</th><th style="text-align:right">이번달 수익</th></tr></thead>
-        <tbody>
-          ${unmatched.map(u => `<tr>
+        <thead><tr><th>KIS 파일 가맹점명</th><th>사업자번호</th><th style="text-align:right">이번달 수익</th><th>→ 등록 가맹점 선택</th><th></th></tr></thead>
+        <tbody id="unmatched-tbody">
+          ${unmatched.map((u, i) => `<tr data-unmatched-idx="${i}">
             <td>${u.name}</td>
             <td style="color:#888">${u.biz_no || '-'}</td>
             <td style="text-align:right;color:#92400e;font-weight:600">₩${u.total.toLocaleString()}</td>
+            <td>
+              <select id="unmatch-select-${i}" class="form-select" style="font-size:12px;max-width:220px">
+                <option value="">선택 안 함...</option>
+                ${merchantOptions}
+              </select>
+            </td>
+            <td><button class="btn btn-sm btn-primary" onclick="linkUnmatchedMerchant(${i})">연결</button></td>
           </tr>`).join('')}
         </tbody>
       </table>
@@ -3018,7 +3139,10 @@ async function saveKisToSupabase(month) {
     const merchant = merchantByBiz[(r.biz_no||'').replace(/-/g,'').trim()] || merchantByName[r.name];
     if (!merchant) {
       skipCount++;
-      unmatchedList.push({ name: r.name, biz_no: r.biz_no, total: Math.round(r.total) });
+      unmatchedList.push({
+        name: r.name, biz_no: r.biz_no, total: Math.round(r.total),
+        approval: r.approval, monthly: Math.round(r.monthly)
+      });
       continue;
     }
     const prev = prevMap[r.name] || 0;
@@ -3209,7 +3333,7 @@ async function loadKisLatest() {
   // 가장 최근 월 데이터 로드 후 window._kisMap에 저장
   try {
     const { data } = await db.from('kis_settlement')
-      .select('month,merchant_name,approval_count,fee_total,monthly_amount')
+      .select('month,merchant_name,biz_no,approval_count,fee_total,monthly_amount')
       .order('month', { ascending: false });
     if (!data || data.length === 0) return;
 
@@ -3218,23 +3342,26 @@ async function loadKisLatest() {
     const latestMonth  = months[0];
     const prevMonth    = months[1] || null;
 
-    // 최근 월 가맹점별 맵
+    // 최근 월 가맹점별 맵 (이름 기준 + 사업자번호 기준 둘 다 구축)
+    // → 가맹점 관리 이름이 KIS 파일과 달라도 사업자번호로 조회 가능
     const latestMap = {};
+    const latestMapByBiz = {};
     data.filter(r => r.month === latestMonth).forEach(r => {
-      latestMap[r.merchant_name] = {
-        approval: r.approval_count || 0,
-        total:    r.fee_total || 0
-      };
+      const entry = { approval: r.approval_count || 0, total: r.fee_total || 0 };
+      latestMap[r.merchant_name] = entry;
+      const biz = (r.biz_no||'').replace(/-/g,'').trim();
+      if (biz) latestMapByBiz[biz] = entry;
     });
 
     // 전월 가맹점별 맵
     const prevMap = {};
+    const prevMapByBiz = {};
     if (prevMonth) {
       data.filter(r => r.month === prevMonth).forEach(r => {
-        prevMap[r.merchant_name] = {
-          approval: r.approval_count || 0,
-          total:    r.fee_total || 0
-        };
+        const entry = { approval: r.approval_count || 0, total: r.fee_total || 0 };
+        prevMap[r.merchant_name] = entry;
+        const biz = (r.biz_no||'').replace(/-/g,'').trim();
+        if (biz) prevMapByBiz[biz] = entry;
       });
     }
 
@@ -3256,7 +3383,9 @@ async function loadKisLatest() {
     const botNames = new Set(sorted.slice(-Math.ceil(sorted.length * 0.2)).map(e => e[0]));
 
     window._kisMap = latestMap;
+    window._kisMapByBiz = latestMapByBiz;
     window._kisPrevMap = prevMap;
+    window._kisPrevMapByBiz = prevMapByBiz;
     window._kisLatestMonth = latestMonth;
     window._kisPrevMonth = prevMonth;
     window._kisLatestTotal = latestTotal;
@@ -3270,9 +3399,49 @@ async function loadKisLatest() {
 }
 
 // =============================================
+// 로그인 / 인증
+// =============================================
+async function checkAuth() {
+  const { data: { session } } = await db.auth.getSession();
+  if (session) {
+    document.getElementById('login-gate').style.display = 'none';
+    document.getElementById('app-root').style.display = '';
+    loadPage('dashboard');
+  } else {
+    document.getElementById('login-gate').style.display = 'flex';
+    document.getElementById('app-root').style.display = 'none';
+  }
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+  if (!email || !password) {
+    errEl.textContent = '이메일과 비밀번호를 입력해주세요.';
+    errEl.style.display = 'block';
+    return;
+  }
+  const { error } = await db.auth.signInWithPassword({ email, password });
+  if (error) {
+    errEl.textContent = '로그인 실패: 이메일 또는 비밀번호를 확인해주세요.';
+    errEl.style.display = 'block';
+    return;
+  }
+  checkAuth();
+}
+
+async function doLogout() {
+  if (!confirm('로그아웃 하시겠어요?')) return;
+  await db.auth.signOut();
+  checkAuth();
+}
+
+// =============================================
 // INIT
 // =============================================
-loadPage('dashboard');
+checkAuth();
 </script>
 </body>
 </html>
