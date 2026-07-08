@@ -2634,19 +2634,37 @@ async function runKisAnalysis() {
     // 데이터 행: 첫 컬럼(NO)이 숫자이고 가맹점명(인덱스7)이 있는 행
     const perfRows = perfArr.filter(r => r[0] !== '' && !isNaN(parseInt(r[0])) && r[7]);
 
+    // 사업자번호(biz_no) 기준 그룹핑 — 단, 확인된 동일 사업자 6곳만 병합
+    // (광명캠퍼스/크레오어학원광명캠퍼스는 브랜드명이 달라 병합 제외, 나머지는 이름 그대로 유지)
+    const MERGE_BIZ_WHITELIST = new Set([
+      '1389106141', // 최선어학원평촌고등관학원 (+ 디와이비최선고등관학원)
+      '1249476877', // 최선어학원 수원캠퍼스 (+ 최선어학원수원정자캠퍼스)
+      '1389056488', // 디와이비 최선어학원초중등평촌 (+ 디와이비 최선어학원)
+      '1359137534', // 최선어학원 수지캠퍼스 (+ 수지캠퍼스초등관 등)
+      '1209070515', // 최선어학원 일산캠퍼스
+      '1058622701', // (주) 오투라인
+    ]);
     const merchantMap = {};
     perfRows.forEach(r => {
       const name   = String(r[7]).trim();
       const bizRaw = String(r[4]||'').replace(/-/g,'').trim();
       const count  = parseFloat(r[9])  || 0;
       const amount = parseFloat(r[10]) || 0;
-      if (!merchantMap[name]) merchantMap[name] = { name, biz_no: bizRaw, approval: 0, monthly: 0 };
-      merchantMap[name].approval += count;
-      merchantMap[name].monthly  += amount;
-      if (!merchantMap[name].biz_no && bizRaw) merchantMap[name].biz_no = bizRaw;
+      // 화이트리스트에 있는 사업자만 biz_no로 병합, 그 외는 이름 그대로 개별 유지
+      const key = (bizRaw && MERGE_BIZ_WHITELIST.has(bizRaw)) ? bizRaw : ('NAME_' + name);
+      if (!merchantMap[key]) {
+        merchantMap[key] = { name, biz_no: bizRaw, approval: 0, monthly: 0, nameAmounts: {} };
+      }
+      merchantMap[key].approval += count;
+      merchantMap[key].monthly  += amount;
+      merchantMap[key].nameAmounts[name] = (merchantMap[key].nameAmounts[name] || 0) + amount;
     });
-    const merchantList = Object.values(merchantMap);
+    const merchantList = Object.values(merchantMap).map(m => {
+      const bestName = Object.entries(m.nameAmounts).sort((a,b) => b[1]-a[1])[0][0];
+      return { name: bestName, biz_no: m.biz_no, approval: m.approval, monthly: m.monthly };
+    });
     document.getElementById('kis-perf-status').textContent = '✅ ' + merchantList.length + '개 가맹점 (' + perfRows.length + '개 단말기) 로드';
+
 
     // ── 3. 유상후불 지급율표 파싱 ──
     const rateBin = await readBinary(fRate);
