@@ -2030,12 +2030,15 @@ window._opState = window._opState || {};
 window._opStateLoaded = false;
 
 async function opLoadStateFromDB() {
-  try {
-    const { data } = await db.from('operation_state').select('key,done');
-    window._opState = {};
-    (data || []).forEach(r => { window._opState[r.key] = r.done; });
-    window._opStateLoaded = true;
-  } catch(e) { window._opStateLoaded = true; }
+  const { data, error } = await db.from('operation_state').select('key,done');
+  if (error) {
+    console.error('[운영계획] 서버 조회 실패:', error.message, error);
+    toast('운영계획 조회 실패: ' + error.message, 'error');
+    return; // 실패 시 기존 캐시 유지 (빈 값으로 덮어쓰지 않음)
+  }
+  window._opState = {};
+  (data || []).forEach(r => { window._opState[r.key] = r.done; });
+  window._opStateLoaded = true;
 }
 
 // 동기 조회 (캐시 사용) — 화면 렌더링 중 즉시 필요한 곳에서 사용
@@ -2047,10 +2050,13 @@ async function opToggle(month, weekIdx, itemIdx) {
   const key = month + '_' + weekIdx + '_' + itemIdx;
   const newVal = !window._opState[key];
 
-  // 저장을 먼저 완료한 뒤에 화면을 다시 그려야 함
-  // (순서가 바뀌면 renderOperation의 서버 재조회가 저장 전 옛 값을 덮어써버리는 경쟁상태 발생)
-  const { error } = await db.from('operation_state').upsert({ key, done: newVal, updated_at: new Date().toISOString() });
-  if (error) { toast('저장 실패: ' + error.message, 'error'); return; }
+  const { error } = await db.from('operation_state')
+    .upsert({ key, done: newVal, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+  if (error) {
+    console.error('[운영계획] 저장 실패:', error.message, error);
+    toast('저장 실패: ' + error.message, 'error');
+    return;
+  }
 
   window._opState[key] = newVal;
   renderOperation();
