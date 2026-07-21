@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>디앤에스밴코리아 고객센터</title>
+<style>
+  :root{--navy:#1F3864;--navy2:#2a4a80;--lime:#C6F432;--ink:#1a2230;--sub:#5a6472;--line:#e5e9f0;--bg:#f4f6fa;--warn:#b45309;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","맑은 고딕",system-ui,sans-serif;line-height:1.6;-webkit-text-size-adjust:100%}
+  .wrap{max-width:560px;margin:0 auto;background:#fff;min-height:100vh}
+  header{background:var(--navy);color:#fff;padding:22px 20px 18px;position:sticky;top:0;z-index:10}
+  .h-brand{font-size:19px;font-weight:800;letter-spacing:.01em}
+  .h-brand b{color:var(--lime)}
+  .h-sub{font-size:12.5px;color:rgba(255,255,255,.7);margin-top:3px}
+  .h-call{display:inline-flex;align-items:center;gap:6px;margin-top:12px;background:var(--lime);color:var(--navy);font-weight:800;font-size:14px;padding:8px 14px;border-radius:22px;text-decoration:none}
+  .tabs{display:flex;gap:6px;overflow-x:auto;padding:10px 14px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:9}
+  .tab{flex:0 0 auto;font-size:13px;font-weight:700;padding:9px 14px;border-radius:22px;border:1px solid var(--line);background:#fff;color:var(--sub);cursor:pointer;white-space:nowrap}
+  .tab.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+  main{padding:16px 16px 60px}
+  .sec{display:none}
+  .sec.on{display:block;animation:f .2s}
+  @keyframes f{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  h2{font-size:17px;margin:4px 0 4px}
+  .lead{font-size:13px;color:var(--sub);margin:0 0 14px}
+  label{display:block;font-size:12.5px;font-weight:700;color:#3a4453;margin:12px 0 5px}
+  label .req{color:#d33}
+  input,select,textarea{width:100%;padding:12px 13px;border:1px solid #d5dbe4;border-radius:11px;font-size:15px;font-family:inherit;outline:none;background:#fff}
+  input:focus,select:focus,textarea:focus{border-color:var(--navy)}
+  textarea{min-height:84px;resize:vertical}
+  .row2{display:flex;gap:10px}.row2>div{flex:1}
+  .btn{width:100%;margin-top:18px;padding:14px;border:none;border-radius:12px;background:var(--navy);color:#fff;font-size:15.5px;font-weight:800;cursor:pointer}
+  .btn:active{transform:translateY(1px)}
+  .btn[disabled]{opacity:.6}
+  .card{border:1px solid var(--line);border-radius:14px;padding:6px 14px;margin:10px 0;background:#fff}
+  details{border-bottom:1px solid var(--line)}
+  details:last-child{border-bottom:none}
+  summary{list-style:none;cursor:pointer;padding:13px 2px;font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:8px}
+  summary::-webkit-details-marker{display:none}
+  summary::after{content:"+";margin-left:auto;color:var(--sub);font-size:18px}
+  details[open] summary::after{content:"−"}
+  .ans{font-size:13.5px;color:#3a4453;padding:0 2px 14px;white-space:pre-wrap;line-height:1.65}
+  .ok{text-align:center;padding:30px 16px}
+  .ok .big{font-size:44px}
+  .ok h3{margin:10px 0 4px;font-size:18px}
+  .ok p{color:var(--sub);font-size:14px;margin:2px 0}
+  .ok .num{display:inline-block;margin-top:12px;background:#eef2fa;color:var(--navy);font-weight:800;padding:6px 14px;border-radius:10px;font-size:14px}
+  .hint{font-size:12px;color:var(--warn);background:#fff7ed;border-left:3px solid #f0b978;border-radius:8px;padding:9px 11px;margin-top:12px}
+  .foot{text-align:center;color:#9aa3b0;font-size:11.5px;padding:20px 0 30px}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:#1a2230;color:#fff;font-size:13.5px;font-weight:700;padding:11px 18px;border-radius:24px;opacity:0;transition:.2s;z-index:50;max-width:90%}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.err{background:#b91c1c}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="h-brand">DNS <b>디앤에스밴코리아</b> 고객센터</div>
+    <div class="h-sub">전화를 못 받아도 아래에서 바로 신청·안내받으실 수 있어요.</div>
+    <a class="h-call" href="tel:16709891">📞 1670-9891 전화하기</a>
+  </header>
+
+  <div class="tabs" id="tabs">
+    <button class="tab on" data-t="paper">🧾 영수증 용지 신청</button>
+    <button class="tab" data-t="callback">📞 콜백 요청</button>
+    <button class="tab" data-t="faq">💬 자주 묻는 안내</button>
+    <button class="tab" data-t="docs">📄 서류 안내</button>
+  </div>
+
+  <main>
+    <!-- 영수증 용지 신청 -->
+    <section class="sec on" id="sec-paper">
+      <h2>영수증 용지 신청</h2>
+      <p class="lead">아래 정보만 남겨주시면 확인 후 발송해드립니다.</p>
+      <div id="form-paper">
+        <label>매장명 <span class="req">*</span></label>
+        <input id="p-store" placeholder="예: 매니페스트커피">
+        <label>연락처 <span class="req">*</span></label>
+        <input id="p-contact" type="tel" placeholder="010-0000-0000" inputmode="numeric">
+        <div class="row2">
+          <div><label>단말기 종류</label>
+            <select id="p-device"><option>KIS 단말기</option><option>토스 프론트</option><option>기타/모름</option></select></div>
+          <div><label>수량</label>
+            <select id="p-qty"><option>1롤</option><option>2롤</option><option>5롤</option><option>10롤</option><option>박스(1)</option></select></div>
+        </div>
+        <label>받으실 주소 <span class="req">*</span></label>
+        <input id="p-addr" placeholder="도로명 주소 + 상세주소">
+        <label>메모 (선택)</label>
+        <textarea id="p-memo" placeholder="용지 규격 등 참고사항이 있으면 적어주세요."></textarea>
+        <button class="btn" id="p-submit" onclick="submitPaper()">용지 신청하기</button>
+        <div class="hint">영업일 기준으로 확인 후 발송되며, 진행 상황은 남겨주신 연락처로 안내드립니다.</div>
+      </div>
+      <div id="ok-paper"></div>
+    </section>
+
+    <!-- 콜백 요청 -->
+    <section class="sec" id="sec-callback">
+      <h2>콜백(전화) 요청</h2>
+      <p class="lead">편하신 시간과 문의 내용을 남겨주시면 저희가 전화드릴게요.</p>
+      <div id="form-callback">
+        <label>매장명</label>
+        <input id="c-store" placeholder="예: 매니페스트커피">
+        <label>연락처 <span class="req">*</span></label>
+        <input id="c-contact" type="tel" placeholder="010-0000-0000" inputmode="numeric">
+        <label>문의 내용 <span class="req">*</span></label>
+        <textarea id="c-detail" placeholder="어떤 도움이 필요하신지 적어주세요."></textarea>
+        <label>통화 가능 시간 (선택)</label>
+        <input id="c-time" placeholder="예: 오늘 오후 2시 이후">
+        <button class="btn" id="c-submit" onclick="submitCallback()">콜백 요청하기</button>
+      </div>
+      <div id="ok-callback"></div>
+    </section>
+
+    <!-- 자주 묻는 안내 -->
+    <section class="sec" id="sec-faq">
+      <h2>자주 묻는 안내</h2>
+      <p class="lead">전화 없이 바로 확인하실 수 있어요.</p>
+      <div class="card" id="faq-list"></div>
+    </section>
+
+    <!-- 서류 안내 -->
+    <section class="sec" id="sec-docs">
+      <h2>서류 제출 안내</h2>
+      <p class="lead">사업자 유형에 맞는 서류를 준비해 아래로 보내주세요.</p>
+      <div class="card">
+        <details open><summary>개인사업자 구비서류</summary><div class="ans">1. 사업자등록증
+2. 통장 사본
+3. 대표자 신분증 사본
+4. 이메일
+5. 사무실 전화번호
+6. 핸드폰 번호, 통신사
+7. 간판 보이는 외관 사진 2장, 내부 사진 2장 (총 4장)
+8. 허가증(신고증) - 필요시 해당 사업자만</div></details>
+        <details><summary>법인사업자 구비서류</summary><div class="ans">1. 대표자 신분증 사본
+2. 대표자 연락처와 통신사
+3. 이메일 (전자서명 가능 담당자도 필요)
+4. 매장 전화번호
+5. 통장 사본
+6. 사업자등록증 사본
+7. 법인등기부등본(등기사항전부증명서) 3개월 이내 (원본)
+8. 법인인감증명서 3개월 이내 (원본)
+9. 사용인감계
+10. 주주명부
+11. 매장 내부사진 2장 (추후 가능)
+12. 매장 외부사진 2장, 간판 보이도록 (추후 가능)
+13. 허가증(신고증) - 필요 시
+
+※ 법인등기부등본은 반드시 원본이 필요합니다.</div></details>
+        <details><summary>서류 보내는 방법</summary><div class="ans">아래 이메일로 보내주시거나, 통화하신 채팅방으로 사진 촬영해서 보내주시면 확인 후 진행해드립니다.
+
+📧 이메일: chanmin1212@naver.com
+📞 문의: 1670-9891</div></details>
+      </div>
+    </section>
+
+    <div class="foot">디앤에스밴코리아 · 1670-9891 · chanmin1212@naver.com</div>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = 'https://maqsveskwhtoqqeysnca.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1hcXN2ZXNrd2h0b3FxZXlzbmNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5NzUyNDAsImV4cCI6MjA5NjU1MTI0MH0.CJAVzPPsWiRhgJS3aaMxdsA3L176jhO2KJnMg9ZOlwQ';
+let sb = null;
+try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catch(e) {}
+
+// 자주 묻는 안내 (고객용) — DNS 실제 안내 기반
+const FAQ = [
+ {q:'설치는 어떻게 진행되나요?', a:'토스 프론트 설치는 토스페이 청약(가맹 등록)이 먼저 완료되어야 합니다.\n① 서류 준비·전달 → ② 청약 등록(저희가 진행) → ③ 사전 설정 → ④ 방문 설치 순으로 진행되며, 저희가 서류 접수부터 사전 설정까지 대행해드립니다.'},
+ {q:'설치 비용이 궁금해요.', a:'· KIS 단말기: 1대 기준 275,000원\n· 토스 프론트2: 정가 286,000원이나 할인 적용 시 기계값+설치비 포함 6만원(최초 1회)\n정확한 금액은 매장 상황에 따라 다를 수 있어 상담 시 안내드립니다.'},
+ {q:'현금영수증을 취소하고 싶어요.', a:'[단말기에서 직접] 현금 → 현금영수증 취소 → 소득공제/지출증빙 선택 → 휴대폰번호/사업자번호 입력 → 거래취소 → 원거래 승인번호·매출날짜·금액 입력\n\n[홈택스] 로그인 → 현금영수증(가맹점) → 발급 → 취소발급\n※ 발급일로부터 3년 이내 취소 가능. 기한이 지난 경우 국세청(126)으로 문의해주세요.'},
+ {q:'홈택스에서 현금영수증이 조회되지 않아요.', a:'단말기(VAN사 경유)로 발급된 건은 발급 당시와 같은 경로에서만 취소가 가능합니다. 오류가 아니라 시스템 구조상 홈택스 조회 대상이 아니며, 소득공제 승인은 정상 처리되어 있습니다. ① 단말기에서 직접 취소 또는 ② 국세상담센터(126)로 진행하시면 됩니다.'},
+ {q:'신용카드 결제를 취소하려면?', a:'단말기에서: 취소 → 신용취소 → 카드 끼우기 → 해당 결제번호 선택 → 진행 → 서명\n화면이 다르거나 어려우시면 콜백 요청을 남겨주세요.'},
+ {q:'단말기 프로그램 연동이 안 돼요.', a:'먼저 직렬통신 USB선을 컴퓨터의 다른 포트에 끼워봐 주세요. 그래도 안 되면 원격지원으로 함께 확인해드리니, 콜백 요청을 남겨주시면 빠르게 도와드리겠습니다.'},
+];
+function renderFAQ(){
+  document.getElementById('faq-list').innerHTML = FAQ.map(f =>
+    '<details><summary>'+f.q+'</summary><div class="ans">'+f.a.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</div></details>').join('');
+}
+renderFAQ();
+
+// 탭 전환
+document.getElementById('tabs').addEventListener('click', e=>{
+  const b = e.target.closest('.tab'); if(!b) return;
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on', x===b));
+  document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
+  document.getElementById('sec-'+b.dataset.t).classList.add('on');
+  window.scrollTo({top:0,behavior:'smooth'});
+});
+
+function toast(msg, err){ const t=document.getElementById('toast'); t.textContent=msg; t.className='toast show'+(err?' err':''); setTimeout(()=>t.className='toast',2600); }
+function digits(s){ return (s||'').replace(/[^0-9]/g,''); }
+
+async function insertReq(type, store_name, contact, detail, extra, okBoxId, formId){
+  if(!sb){ toast('일시적으로 신청이 어렵습니다. 1670-9891로 전화 주세요.', true); return; }
+  const btnBox = document.getElementById(formId);
+  const btn = btnBox.querySelector('.btn'); btn.disabled = true; const orig = btn.textContent; btn.textContent='신청 중...';
+  try{
+    const ticket = 'S' + Date.now().toString().slice(-8);
+    const { error } = await sb.from('self_requests').insert({
+      ticket_no: ticket, type, store_name, contact: digits(contact), detail, extra, status:'접수'
+    });
+    if(error) throw error;
+    document.getElementById(formId).style.display='none';
+    document.getElementById(okBoxId).innerHTML =
+      '<div class="ok"><div class="big">✅</div><h3>접수되었습니다</h3>'+
+      '<p>확인 후 남겨주신 연락처로 안내드리겠습니다.</p>'+
+      '<div class="num">접수번호 '+ticket+'</div></div>';
+  }catch(e){
+    toast('접수 실패: '+((e&&e.message)||e)+' — 1670-9891로 전화 주세요.', true);
+    btn.disabled=false; btn.textContent=orig;
+  }
+}
+function submitPaper(){
+  const store=val('p-store'), contact=val('p-contact'), addr=val('p-addr');
+  if(!store||!digits(contact)||!addr) return toast('매장명·연락처·주소를 입력해주세요.', true);
+  const detail = '['+val('p-device')+'] 용지 '+val('p-qty')+' / 주소: '+addr+(val('p-memo')?(' / 메모: '+val('p-memo')):'');
+  insertReq('영수증용지신청', store, contact, detail, { device:val('p-device'), qty:val('p-qty'), address:addr, memo:val('p-memo') }, 'ok-paper', 'form-paper');
+}
+function submitCallback(){
+  const contact=val('c-contact'), detail=val('c-detail');
+  if(!digits(contact)||!detail) return toast('연락처와 문의 내용을 입력해주세요.', true);
+  const full = detail + (val('c-time')?(' / 통화가능: '+val('c-time')):'');
+  insertReq('콜백요청', val('c-store'), contact, full, { wanted_time:val('c-time') }, 'ok-callback', 'form-callback');
+}
+function val(id){ return (document.getElementById(id).value||'').trim(); }
+</script>
+</body>
+</html>

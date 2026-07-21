@@ -308,6 +308,23 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// 병합 허용 사업자번호 목록 — DB(merchant_merge_rules)에서 로드, 세션 내 캐시
+let MERGE_BIZ_WHITELIST = null;
+async function loadMergeWhitelist() {
+  if (MERGE_BIZ_WHITELIST) return MERGE_BIZ_WHITELIST;
+  const { data, error } = await db
+    .from('merchant_merge_rules')
+    .select('biz_no')
+    .eq('active', true);
+  // 조용히 넘어가지 않는다 — 실패 시 명확히 오류 처리
+  if (error) throw new Error('병합 규칙 로드 실패(merchant_merge_rules): ' + error.message);
+  if (!data || data.length === 0)
+    throw new Error('병합 규칙이 비어 있습니다(merchant_merge_rules). KIS 병합이 잘못될 수 있어 중단합니다.');
+  MERGE_BIZ_WHITELIST = new Set(data.map(r => String(r.biz_no).replace(/-/g, '').trim()));
+  console.log('[MERGE] 병합 규칙 ' + MERGE_BIZ_WHITELIST.size + '개 로드');
+  return MERGE_BIZ_WHITELIST;
+}
+
 // =============================================
 // NAV
 // =============================================
@@ -772,6 +789,7 @@ async function renderCS() {
     const dupMerchants = Object.entries(openCountByMerchant).filter(([,n]) => n > 1);
 
     html += '<div class="card"><div class="card-header"><div class="card-title">CS 목록 (' + filtered.length + '건)</div>' +
+      '<button class="btn btn-sm" onclick="openCSTemplates()" style="background:#1F3864;color:#fff;">📤 안내 문구</button>' +
       '<button class="btn btn-sm btn-excel" onclick="exportCSExcel()">📊 엑셀 저장</button></div>';
 
     if (dupMerchants.length > 0) {
@@ -797,6 +815,7 @@ async function renderCS() {
           '<td style="font-size:12px;color:' + (c.due_date && c.due_date < today() && c.status!=='완료' ? '#b91c1c' : '#888') + '">' + (c.due_date||'-') + '</td>' +
           '<td>' + csStatusBadge(c.status) + '</td>' +
           '<td style="display:flex;gap:4px;">' +
+            '<button class="btn btn-sm" onclick="openCSTemplatesForTicket(' + c.id + ')" title="안내 문구">📤</button>' +
             '<button class="btn btn-sm" onclick="openEditCS(' + c.id + ')">편집</button>' +
             (c.status!=='완료' ? '<button class="btn btn-sm btn-success" onclick="completeCS(' + c.id + ')">완료</button>' : '') +
             '<button class="btn btn-sm btn-danger" onclick="deleteCS(' + c.id + ')">삭제</button>' +
@@ -925,6 +944,406 @@ function exportCSExcel() {
   XLSX.utils.book_append_sheet(wb, ws, 'CS내역');
   XLSX.writeFile(wb, 'CS내역_' + today() + '.xlsx');
   toast('엑셀 저장 완료');
+}
+
+// =============================================
+// CS 안내 문구 (템플릿) — 통화 후 문자/카톡 안내 발송
+// =============================================
+const CS_TPL_CATS = [
+  { key:'접수',  ic:'📞', name:'문의 접수·유형확인' },
+  { key:'서류',  ic:'📄', name:'구비서류 안내' },
+  { key:'가격',  ic:'💳', name:'가격·약정' },
+  { key:'후속',  ic:'📨', name:'서류 후속' },
+  { key:'설치',  ic:'🔧', name:'토스 프론트 설치' },
+  { key:'연동',  ic:'🖥️', name:'단말기 연동/문제' },
+  { key:'현금',  ic:'🧾', name:'현금영수증' },
+  { key:'결제',  ic:'💠', name:'카드 결제취소' },
+];
+const CS_TEMPLATES = [
+ { cat:'접수', type:'send', title:'첫 답변(사업자 유형 확인)', when:'설치·청약 문의가 처음 들어왔을 때',
+   body:`안녕하세요, 디앤에스밴코리아입니다.
+토스 프론트 설치 문의 주셔서 감사합니다.
+토스 프론트 설치를 위해서는 토스페이 청약(가맹 등록)이 먼저 완료되어야 하는 점 안내드립니다.
+원활한 안내를 위해 여쭤볼게요.
+혹시 개인사업자이신가요, 법인사업자이신가요?
+사업자 유형에 맞춰 필요 서류 안내드릴게요.` },
+
+ { cat:'서류', type:'send', title:'개인사업자 구비서류', when:'개인사업자 신규등록 서류 요청 시',
+   body:`[개인사업자 신규등록 구비서류 안내]
+1. 사업자등록증
+2. 통장 사본
+3. 대표자 신분증 사본
+4. 이메일
+5. 사무실 전화번호
+6. 핸드폰 번호, 통신사
+7. 간판 보이는 외관 사진 2장, 내부 사진 2장 (총 4장)
+8. 허가증(신고증) - 필요시 해당 사업자만
+
+서류는 이메일(chanmin1212@naver.com)로 보내주시거나, 이 채팅방으로 사진 촬영해서 보내주시면 확인 후 진행해드릴게요!
+전화: 1670-9891`,
+   note:'개업연월일 이전 접수 불가 · 정산 담당자 이메일 누락 시 반려 가능 · 통신판매업만 등록 시 매장사진 필수' },
+
+ { cat:'서류', type:'send', title:'법인사업자 구비서류', when:'법인사업자 신규등록 서류 요청 시',
+   body:`[법인사업자 신규등록 구비서류 안내]
+1. 대표자 신분증 사본
+2. 대표자 연락처와 통신사
+3. 이메일 (전자서명 가능 담당자도 필요)
+4. 매장 전화번호
+5. 통장 사본
+6. 사업자등록증 사본
+7. 법인등기부등본(등기사항전부증명서) 3개월 이내 (원본)
+8. 법인인감증명서 3개월 이내 (원본)
+9. 사용인감계
+10. 주주명부
+11. 매장 내부사진 2장 - 추후 가능
+12. 매장 외부사진 2장 (간판 보이도록) - 추후 가능
+13. 허가증(신고증) - 필요 시
+
+※ 법인등기부등본은 반드시 원본이 필요합니다.
+※ 허가증이 필요한 업종은 서류가 추가됩니다.
+
+서류 확인 후 설치 일정 조율해드리겠습니다.
+전화: 1670-9891` },
+
+ { cat:'가격', type:'send', title:'단말기(KIS) 설치 안내', when:'KIS 단말기 설치 최초 문의',
+   body:`[단말기 설치 안내]
+안녕하세요, 디앤에스밴코리아입니다.
+문의 주셔서 감사합니다!
+
+▪ 설치 비용: 단말기 1대 기준 275,000원
+▪ 설치 전 사전 서류 등록이 필요합니다
+
+서류 확인 후 설치 일정 조율해드리겠습니다.
+서류는 이 채팅방으로 사진 촬영해서 보내주시면 됩니다!
+추가 문의사항 있으시면 편하게 말씀해주세요.` },
+
+ { cat:'가격', type:'send', title:'토스 프론트 부재중 안내(가격)', when:'통화 부재중 → 문자로 가격 안내',
+   body:`안녕하세요, 디앤에스밴코리아입니다.
+어제 토스 단말기 설치 문의 주셨는데 부재중이셔서 문자로 안내드립니다.
+토스 프론트2 정가는 286,000원이지만, 할인 적용하여 기계값 + 설치비 포함 6만원에 설치 가능합니다.
+설치 원하시면 답장 주세요! 필요한 서류 등록 및 설치 절차 바로 안내해드리겠습니다.
+감사합니다.
+디앤에스밴코리아 드림
+전화: 1670-9891` },
+
+ { cat:'가격', type:'send', title:'유료 사유 설명(LMS 연동)', when:'무료 설치와 비교하며 유료 이유 물을 때',
+   body:`안녕하세요, 디앤에스밴코리아입니다.
+문의 주신 부분 설명드립니다.
+
+토스의 무료 설치 프로모션은 신규 가맹점으로 토스 단말기를 단독 개통하시는 경우에 적용되는 조건입니다. 이는 토스 본사 차원의 지원 정책으로, 어느 대리점에서 진행하시든 동일하게 적용됩니다.
+
+원장님 매장은 현재 기존 KIS 결제 시스템을 그대로 유지하면서, 학원 LMS 연동을 계속 사용하기 위해 토스 프론트를 결제 패드 형태로 추가 부착하는 방식입니다. 이는 신규 단독 개통이 아니라 기존 시스템에 장비를 붙이는 맞춤 연동 설치이기 때문에, 무료 프로모션 대상 카테고리에 해당되지 않습니다.
+
+실제로 이 방식은 일반 설치보다 아래 작업이 추가로 들어갑니다.
+- 기존 KIS 단말기 프로그램 버전 확인 및 업데이트
+- 토스 프론트 연동을 위한 별도 설정 작업
+- LMS 프로그램과의 연동 유지 확인
+
+이에 따라 토스 프론트2 정가 286,000원에서 기계값과 설치비를 모두 포함하여 6만원으로 최대한 부담을 낮춰드린 가격입니다.
+궁금하신 점 있으시면 편하게 말씀해 주시기 바랍니다. 감사합니다.`,
+   note:"'LMS 연동'이라는 명확한 사유만 안내 (월 결제건수 미달 등은 언급 금지)" },
+
+ { cat:'가격', type:'send', title:'설치비 1회성 안내(재문의)', when:'6만원이 매달 나가는지 등 재확인',
+   body:`안녕하세요, 디앤에스밴코리아입니다.
+문의 주신 부분 답변드립니다.
+
+네, 말씀하신 6만원은 최초 설치 시 1회만 결제하시면 되며, 이후 추가로 청구되는 설치 관련 비용은 없습니다.
+
+설치 진행 원하시면 답장 부탁드립니다. 확인되는 대로 서류 안내 도와드리겠습니다.
+혹시 개인사업자이신가요, 법인사업자이신가요? 사업자 유형에 맞춰 필요 서류 안내드리겠습니다.` },
+
+ { cat:'가격', type:'send', title:'약정 없음 안내', when:'약정·위약금 문의 시',
+   body:`문의 주신 약정 관련해서는, 이번 설치는 별도의 의무사용기간이나 위약금이 없는 조건입니다. 편하게 진행하시면 됩니다.`,
+   note:'약정 유무는 설치 건마다 다름 — 발송 전 실제 조건 확인' },
+
+ { cat:'후속', type:'send', title:'서류 미수신 재요청(+약정)', when:'서류가 도착 안 했을 때',
+   body:`안녕하세요, 디앤에스밴코리아입니다.
+확인해보니 메일함에 아직 서류가 도착하지 않은 것 같습니다. 죄송하지만 다시 한번 확인 부탁드려도 될까요?
+
+- 수신 이메일 주소: chanmin1212@naver.com (오타 없이 확인 부탁드립니다)
+- 혹시 발송은 하셨는데 안 보이는 경우, 스팸함도 한번 확인 부탁드립니다.
+
+번거로우시겠지만 다시 보내주시면 바로 확인 후 진행하겠습니다.
+문의 주신 약정 관련해서는, 이번 설치는 별도의 의무사용기간이나 위약금이 없는 조건입니다. 편하게 진행하시면 됩니다.
+감사합니다.
+디앤에스밴코리아 드림
+전화: 1670-9891` },
+
+ { cat:'설치', type:'send', title:'전체 진행 절차', when:'청약~설치 전체 흐름 문의',
+   body:`[토스 프론트 설치 안내 - 전체 진행 절차]
+안녕하세요, 디앤에스밴코리아입니다.
+토스 프론트 설치를 위해서는 토스페이 청약(가맹 등록)이 먼저 완료되어야 하는 점 안내드립니다.
+저희가 서류 접수부터 사전 설정까지 대행해드립니다.
+
+[진행 순서]
+① 서류 준비 및 전달 - 사업자 유형에 맞는 서류를 이 채팅방으로 전달
+② 토스페이 청약 등록(저희가 진행)
+③ 청약 승인 후 사전 설정(저희가 진행)
+④ 방문 설치 - 사전 설정 완료된 단말기로 현장 연결
+
+[안내]
+- 청약 승인 전에는 단말기 설치가 불가하니, 서류를 최대한 빨리 보내주시면 도움이 됩니다.
+- 진행 상황은 단계별로 안내드릴게요.
+전화: 1670-9891` },
+
+ { cat:'설치', type:'send', title:'토스 프론트 무선 연결', when:'가맹점 직접 무선 설치',
+   body:`[토스 프론트 설치 안내 - 무선 연결]
+안녕하세요, 디앤에스밴코리아입니다.
+토스 프론트 설치를 도와드리겠습니다!
+
+[사전 준비]
+1. 토스 포스 프로그램을 설치할 PC(또는 태블릿) 준비
+2. 홈페이지 상단 [포스 앱 다운로드]에서 기기 OS에 맞는 소프트웨어 다운로드
+3. 구성품 확인: 프론트 본품, C to C 케이블, 어댑터, 설명서
+
+[설치 순서]
+1. 흰색 C타입 케이블 + 어댑터로 콘센트에 연결 후, 측면 버튼을 길게 눌러 전원 ON
+2. Wi-Fi 연결(프론트와 PC는 반드시 같은 Wi-Fi)
+3. 매장 이름 확인 후 [동의하고 시작하기] 클릭
+4. 프론트 화면 문구와 포스 화면 문구 일치 선택
+5. 사업자등록증에 등록된 대표자 휴대폰 번호 입력
+6. 연결 완료 화면 확인 → 설치 완료
+7. 대표자 휴대폰으로 설치완료 알림톡 발송 (매장고유번호 저장)
+전화: 1670-9891` },
+
+ { cat:'설치', type:'send', title:'토스 프론트 유선 연결', when:'가맹점 직접 유선 설치',
+   body:`[토스 프론트 설치 안내 - 유선 연결]
+안녕하세요, 디앤에스밴코리아입니다.
+
+[설치 순서]
+1. 흰색 C타입 케이블 + 어댑터로 콘센트 연결 후, 측면 버튼 길게 눌러 전원 ON
+2. [토스 포스와 프론트 연결하기]에서 [유선으로 연결] 선택
+3. 시리얼 케이블로 PC(또는 포스기)와 프론트 연결 (PC는 COM1~4 중 맞는 포트)
+4. 토스 포스 앱 실행 → [시작하기] → [네, 구매했어요]
+5. 포스 화면에서 연결할 프론트 선택
+6. 대표자 휴대폰 번호 입력
+7. 연결 완료 확인 → 설치완료 알림톡 발송 (매장고유번호 저장)
+전화: 1670-9891` },
+
+ { cat:'설치', type:'send', title:'설치 완료 안내', when:'설치 끝난 뒤 마무리',
+   body:`안녕하세요, 디앤에스밴코리아입니다.
+토스 프론트 설치가 정상적으로 완료되었습니다!
+
+▪ 매장고유번호: (매장고유번호)
+▪ 설치일: (설치일)
+
+결제 테스트 및 사용법 안내까지 모두 마쳤습니다.
+사용 중 궁금한 점이나 오류가 발생하면 언제든 편하게 연락 주세요.
+전화: 1670-9891 / 이메일: chanmin1212@naver.com` },
+
+ { cat:'연동', type:'send', title:'LMS 재연동(포맷 후)', when:'컴퓨터 포맷으로 LMS 연동 끊김',
+   body:`제목: [디앤에스밴코리아] 단말기-LMS 연동 프로그램 재설치 안내
+
+안녕하세요, 디앤에스밴코리아입니다.
+컴퓨터 포맷으로 단말기와 LMS 프로그램 간 연동이 해제된 것으로 확인되어, 재연동 프로그램과 안내를 보내드립니다.
+
+[첨부] 1. KIS 연동 프로그램  2. 화면 연동 설치 안내 이미지
+
+[설치 순서]
+1. 첨부된 KIS 연동 프로그램 설치
+2. 안내 이미지 참고하여 화면 연동 설정
+3. 설정 완료 후 연락 주시면 정상 연동 여부 확인해드립니다.
+
+[원격지원] 직접 진행이 어려우시면 원격지원(PC Any Pro)으로 도와드립니다.
+- pcanypro.net 에서 다운로드 후 실행, 안내되는 번호를 알려주시면 원격 접속합니다.
+전화: 1670-9891 / 이메일: chanmin1212@naver.com` },
+
+ { cat:'연동', type:'send', title:'SP420 ↔ KIS-3410 연결', when:'SP420 사인패드를 KIS-3410에 연결',
+   body:`안녕하세요, 디앤에스밴코리아입니다.
+SP420 단말기를 KIS-3410에 연결하는 방법 안내드립니다.
+
+[1단계 - 케이블 연결]
+1. SP420 뒷면 CAT 단자("CAT 타입" 케이블)를 KIS-3410 뒷면 통신 단자에 연결
+2. SP420에 전원 어댑터 연결 후 전원 ON
+
+[2단계 - KIS-3410 설정]
+1. [기능] 키 → 사용자설정 → 포트설정 → KIS-PAD 설정
+2. 설정값을 "사용"으로 변경
+3. 사인패드 속도 38400으로 설정
+
+[3단계 - 확인]
+- SP420 화면에 정상 신호 확인, 카드 결제 시 서명/결제 화면 나오면 완료
+
+메뉴 명칭이나 화면이 다르면 진행하지 마시고 연락 주세요. 전화/원격으로 도와드립니다.
+전화: 1670-9891`,
+   note:'KIS-3410=속도 38400 / KIS-7430·7440=9600 (모델 확인 후 안내)' },
+
+ { cat:'연동', type:'ref', title:'[내부] 단말기 프로그램 연동 안 될 때', when:'연동 문제 응대 순서 (직원 참고)',
+   body:`[단말기 프로그램 연동이 안 되는 경우 - 대응 순서]
+
+1. 컴퓨터 환경 변화 확인
+   직렬통신 USB선을 컴퓨터의 다른 포트에 끼워보도록 안내
+
+2. 프로그램 연동 설정 확인 (KIS)
+   POS → 3.POS-KIS → 0.사용 → 연동방식 0.COM(POS포트) → 통신속도 0.9600
+   → IC카드단독결제 0.사용 → IC카드삽입신호 0.사용 → 종료
+
+3. 그래도 안 되면 원격 확인 (피씨애니프로)
+   내PC → 속성 → 장치관리자에서 컴퓨터 연결번호와 프로그램 연결번호 일치 확인
+
+4. 그래도 안 되면 현장 방문하여 케이블 교체
+
+5. 그래도 안 되면 본사 프로그램 담당자에게 문의` },
+
+ { cat:'연동', type:'ref', title:'[내부] 멀티패드 연동 안 될 때', when:'멀티패드 주문 매장 (직원 참고)',
+   body:`[멀티패드 연동이 안 되는 경우 - 설정]
+
+기능 → 1.사용자설정 → 4.포트설정 → 2.KIS-PAD설정 → 2.KIS-MP(멀티패드 주문 매장만)
+→ KIS-MP 0.사용 → 멀티패드 IC카드 우선 처리 0.사용` },
+
+ { cat:'현금', type:'send', title:'현금영수증 취소(홈택스/ARS)', when:'현금영수증 취소 방법 문의',
+   body:`[현금영수증 취소 안내]
+안녕하세요, 디앤에스밴코리아입니다.
+현금영수증 취소 절차 안내드립니다.
+
+▪ 승인번호: (승인번호)
+▪ 거래일자: (거래일자)
+
+[홈택스] 로그인 → 현금영수증(가맹점) → 발급 → 취소발급 → 승인번호·거래일자 입력 후 취소사유 선택
+[ARS - 국번없이 126] 사업자등록번호, ARS 비밀번호, 거래일자·금액·승인번호 순 입력
+
+※ 발급일로부터 3년 이내 취소 가능
+문의: 1670-9891` },
+
+ { cat:'현금', type:'send', title:'단말기 현금영수증 취소 절차', when:'단말기에서 직접 취소 방법 안내',
+   body:`[단말기 현금영수증 취소 방법]
+현금 → 현금영수증 취소 → 소득공제/지출증빙 중 선택 → 휴대폰 번호/사업자번호 입력
+→ 거래취소 → 원거래승인번호 입력(영수증 확인) → 원거래 매출날짜(날짜 다르면 정정버튼) → 거래금액 입력
+
+※ 취소 기한이 만료된 경우 국세청(126)에 직접 문의하셔야 합니다.
+전화: 1670-9891` },
+
+ { cat:'현금', type:'send', title:'현금영수증 홈택스 미조회 사유', when:'단말기 발급 건이 홈택스에서 안 보임',
+   body:`[현금영수증 취소 - 홈택스 미조회 안내]
+안녕하세요, 디앤에스밴코리아입니다.
+문의 주신 현금영수증이 홈택스에서 조회되지 않는 이유 안내드립니다.
+
+▪ 국세청은 발급 경로(①단말기 ②홈택스 ③ARS)별로 시스템을 각각 관리합니다.
+▪ 해당 건은 단말기(VAN사 경유) 발급 건이라, 발급 당시와 동일한 경로에서만 취소가 가능합니다.
+▪ 저희 밴사 전산엔 소득공제 승인이 정상 처리되어 있으며, 오류가 아니라 시스템 구조상 홈택스 조회 대상이 아닌 것입니다.
+
+취소는 ① 단말기에서 직접 취소 ② 국세상담센터 ARS(126) 중 하나로 진행하시면 됩니다.
+편하신 방법 말씀 주세요.
+전화: 1670-9891` },
+
+ { cat:'현금', type:'ref', title:'[참고] 토스 프론트/포스 취소 절차', when:'토스 프론트/포스 사용 가맹점 응대 참고',
+   body:`토스 프론트/포스 사용 가맹점은 결제 취소 후, 발급 당시 사용한 휴대폰 번호를 입력하거나 현금영수증 카드를 다시 긁으면 별도 용도 재선택 없이 자동으로 취소됩니다.
+단, NICE 또는 KIS 파트너사에서만 지원되는 기능입니다.` },
+
+ { cat:'결제', type:'send', title:'신용카드 결제취소 절차', when:'카드 결제 취소 방법 안내',
+   body:`[신용카드 결제취소 방법]
+취소 → 신용취소 → 카드 끼우기 → 해당되는 결제번호 누르기 → 1번 진행 → 입력 → 서명
+
+취소가 안 되거나 화면이 다르면 편하게 연락 주세요.
+전화: 1670-9891` },
+];
+
+let _tplCat = '전체', _tplPreContact = '';
+function openCSTemplatesForTicket(id){
+  const c = (window._cs||[]).find(x => x.id === id) || {};
+  openCSTemplates(c.contact || '', c.merchant_name || '');
+}
+function openCSTemplates(preContact, preName){
+  _tplPreContact = preContact || '';
+  let ov = document.getElementById('tpl-overlay');
+  if (!ov){
+    ov = document.createElement('div');
+    ov.id = 'tpl-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,20,30,.55);z-index:4000;display:flex;align-items:flex-end;justify-content:center;';
+    ov.addEventListener('click', e => { if (e.target === ov) closeCSTemplates(); });
+    document.body.appendChild(ov);
+  }
+  ov.style.display = 'flex';
+  _tplCat = '전체';
+  _tplRenderList('');
+}
+function closeCSTemplates(){ const ov=document.getElementById('tpl-overlay'); if(ov) ov.style.display='none'; }
+function _tplEsc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function _tplHi(s){ return _tplEsc(s).replace(/\(([^)]{1,20})\)/g,'<span style="color:#b45309;font-weight:700;background:#fef3c7;border-radius:3px;padding:0 3px">($1)</span>'); }
+function _tplRenderList(q){
+  const ov = document.getElementById('tpl-overlay'); if(!ov) return;
+  const chips = [{key:'전체',name:'전체'}].concat(CS_TPL_CATS.map(c=>({key:c.key,name:c.name})));
+  let h = '<div style="background:#fff;width:100%;max-width:720px;max-height:88vh;border-radius:16px 16px 0 0;display:flex;flex-direction:column;overflow:hidden;">';
+  h += '<div style="padding:14px 16px 8px;border-bottom:1px solid #eee;">';
+  h += '<div style="display:flex;align-items:center;gap:8px;"><b style="font-size:15px;color:#1F3864;">📤 CS 안내 문구</b>';
+  h += '<span style="font-size:11px;color:#888;">복사해서 문자/카톡으로 보내세요</span>';
+  h += '<button onclick="closeCSTemplates()" style="margin-left:auto;border:none;background:#f1f3f6;border-radius:8px;width:30px;height:30px;font-size:16px;cursor:pointer;">×</button></div>';
+  h += '<input id="tpl-q" oninput="_tplRenderList(this.value)" value="'+_tplEsc(q)+'" placeholder="🔍 검색 (예: 개인사업자, 현금영수증, 유선)" style="width:100%;margin-top:10px;padding:10px 12px;border:1px solid #ddd;border-radius:10px;font-size:14px;outline:none;">';
+  h += '<div style="display:flex;gap:6px;overflow-x:auto;padding:10px 0 2px;">';
+  chips.forEach(c=>{ const on=_tplCat===c.key; h+='<button onclick="_tplCat=\''+c.key+'\';_tplRenderList(document.getElementById(\'tpl-q\').value)" style="flex:0 0 auto;font-size:12px;font-weight:700;padding:6px 11px;border-radius:16px;border:1px solid '+(on?'#1F3864':'#ddd')+';background:'+(on?'#1F3864':'#fff')+';color:'+(on?'#fff':'#555')+';cursor:pointer;white-space:nowrap;">'+_tplEsc(c.name)+'</button>'; });
+  h += '</div></div>';
+  h += '<div style="overflow-y:auto;padding:8px 16px 20px;">';
+  const ql = (q||'').toLowerCase();
+  let n = 0;
+  CS_TEMPLATES.forEach((t,i)=>{
+    if(_tplCat!=='전체' && t.cat!==_tplCat) return;
+    if(ql && !(t.title+t.when+t.body).toLowerCase().includes(ql)) return;
+    n++;
+    const tag = t.type==='send' ? '<span style="font-size:10px;font-weight:700;color:#0a7;background:#e6f7f0;border-radius:10px;padding:2px 7px;">발송용</span>'
+                                : '<span style="font-size:10px;font-weight:700;color:#888;background:#f1f3f6;border-radius:10px;padding:2px 7px;">내부참고</span>';
+    h += '<div style="border:1px solid #eaecef;border-radius:12px;padding:12px 13px;margin:9px 0;">';
+    h += '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;"><b style="font-size:14px;">'+_tplEsc(t.title)+'</b>'+tag+'</div>';
+    h += '<div style="font-size:11px;color:#999;margin:2px 0 8px;">'+_tplEsc(t.when)+'</div>';
+    h += '<div style="background:#f7f8fa;border:1px solid #eee;border-radius:8px;padding:10px;font-size:12.5px;white-space:pre-wrap;line-height:1.55;max-height:150px;overflow:auto;">'+_tplHi(t.body)+'</div>';
+    if(t.note) h += '<div style="margin-top:6px;font-size:11px;color:#b91c1c;background:#fef2f2;border-left:3px solid #f0a0a0;border-radius:6px;padding:6px 8px;">⚠ '+_tplEsc(t.note)+'</div>';
+    h += '<div style="margin-top:9px;"><button onclick="_tplCompose('+i+')" style="width:100%;padding:10px;border:none;border-radius:9px;background:#1F3864;color:#fff;font-size:13.5px;font-weight:700;cursor:pointer;">✍ 작성·발송</button></div>';
+    h += '</div>';
+  });
+  if(!n) h += '<div style="text-align:center;color:#aaa;padding:40px 0;">검색 결과가 없어요.</div>';
+  h += '</div></div>';
+  ov.innerHTML = h;
+}
+function _tplCompose(i){
+  const t = CS_TEMPLATES[i]; if(!t) return;
+  const ov = document.getElementById('tpl-overlay'); if(!ov) return;
+  let h = '<div style="background:#fff;width:100%;max-width:720px;max-height:88vh;border-radius:16px 16px 0 0;display:flex;flex-direction:column;overflow:hidden;">';
+  h += '<div style="padding:14px 16px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:8px;">';
+  h += '<button onclick="_tplRenderList(\'\')" style="border:none;background:#f1f3f6;border-radius:8px;width:30px;height:30px;font-size:16px;cursor:pointer;">←</button>';
+  h += '<b style="font-size:14px;color:#1F3864;">'+_tplEsc(t.title)+'</b>';
+  h += '<button onclick="closeCSTemplates()" style="margin-left:auto;border:none;background:#f1f3f6;border-radius:8px;width:30px;height:30px;font-size:16px;cursor:pointer;">×</button></div>';
+  h += '<div style="overflow-y:auto;padding:14px 16px 20px;">';
+  h += '<label style="font-size:12px;font-weight:700;color:#555;">수신 연락처</label>';
+  h += '<input id="tpl-to" value="'+_tplEsc(_tplPreContact)+'" placeholder="010-0000-0000" style="width:100%;margin:5px 0 12px;padding:10px 12px;border:1px solid #ddd;border-radius:9px;font-size:14px;outline:none;">';
+  h += '<label style="font-size:12px;font-weight:700;color:#555;">보낼 내용 <span style="color:#b45309;font-weight:400;">— 노란색 (칸)을 실제 값으로 채우세요</span></label>';
+  h += '<textarea id="tpl-body" style="width:100%;margin-top:5px;min-height:230px;padding:12px;border:1px solid #ddd;border-radius:10px;font-size:13.5px;line-height:1.6;font-family:inherit;outline:none;resize:vertical;">'+_tplEsc(t.body)+'</textarea>';
+  if(t.note) h += '<div style="margin-top:8px;font-size:11.5px;color:#b91c1c;background:#fef2f2;border-left:3px solid #f0a0a0;border-radius:6px;padding:7px 9px;">⚠ 발송 전 확인: '+_tplEsc(t.note)+'</div>';
+  h += '<div style="display:flex;gap:8px;margin-top:14px;">';
+  h += '<button onclick="_tplCopy()" style="flex:1;padding:12px;border:none;border-radius:10px;background:#2563eb;color:#fff;font-size:14px;font-weight:700;cursor:pointer;">📋 복사</button>';
+  h += '<button onclick="_tplSend()" style="flex:1;padding:12px;border:none;border-radius:10px;background:#C6F432;color:#1F3864;font-size:14px;font-weight:700;cursor:pointer;">📱 문자 발송</button>';
+  h += '</div>';
+  h += '<div style="margin-top:8px;font-size:11px;color:#999;text-align:center;">복사 후 카카오톡/문자 앱에 붙여넣어 보내세요. 자동 발송은 문자 API 연결 시 활성화됩니다.</div>';
+  h += '</div></div>';
+  ov.innerHTML = h;
+}
+function _tplCopy(){
+  const t = document.getElementById('tpl-body'); if(!t) return;
+  const text = t.value;
+  const done = ()=>toast('문구가 복사되었습니다. 붙여넣어 보내세요.');
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(()=>{ t.select(); document.execCommand('copy'); done(); });
+  } else { t.select(); document.execCommand('copy'); done(); }
+}
+async function _tplSend(){
+  const to = (document.getElementById('tpl-to')||{}).value || '';
+  const body = (document.getElementById('tpl-body')||{}).value || '';
+  if(!to.trim()) return toast('수신 연락처를 입력해주세요.', 'error');
+  const toNum = to.replace(/[^0-9]/g,'');
+  if(toNum.length < 9) return toast('연락처 형식을 확인해주세요.', 'error');
+  if(!confirm(to + ' 번호로 문자를 발송할까요?')) return;
+  const btns = document.querySelectorAll('#tpl-overlay button'); btns.forEach(b=>b.disabled=true);
+  try{
+    // 솔라피 문자발송 — Supabase Edge Function 'send-sms' 호출 (API키는 서버 시크릿에 보관)
+    const { data, error } = await db.functions.invoke('send-sms', { body: { to: toNum, text: body } });
+    if(error) throw error;
+    if(data && data.ok === false) throw new Error(data.error || '발송 실패');
+    toast('문자를 발송했습니다: ' + to);
+    closeCSTemplates();
+  }catch(e){
+    const msg = (e && e.message) ? e.message : String(e);
+    toast('발송 실패: ' + msg + ' — 문자연동 전이면 [복사]로 보내주세요.', 'error');
+  }finally{
+    document.querySelectorAll('#tpl-overlay button').forEach(b=>b.disabled=false);
+  }
 }
 
 // =============================================
@@ -1280,12 +1699,6 @@ async function deleteOrder(id) {
   const { error } = await db.from('orders').delete().eq('id', id);
   if (error) return toast('삭제 실패', 'error');
   toast('삭제되었습니다.'); renderOrders();
-}
-
-function categoryBadge(c) {
-  if (c==='단말기') return '<span class="badge badge-navy">단말기</span>';
-  if (c==='싸인패드') return '<span class="badge badge-purple">싸인패드</span>';
-  return '<span class="badge badge-gray">소모품</span>';
 }
 
 // =============================================
@@ -2818,7 +3231,19 @@ async function runKisAnalysis() {
   const fRate   = document.getElementById('kis-file-rate').files[0];
   if (!fAgency || !fPerf || !fRate) return toast('①~③ 3개 파일을 모두 업로드해주세요.', 'error');
 
+  // 정산 월은 파싱 전에 확인한다 (파일 3개 다 읽고 나서 막히면 "분석 중"에서 멈춘 것처럼 보임)
+  const analysisMonth = document.getElementById('kis-month').value;
+  if (!analysisMonth) return toast('정산 월을 먼저 선택해주세요.', 'error');
+
   document.getElementById('kis-result').innerHTML = '<div style="text-align:center;padding:40px;color:#888">⏳ 분석 중...</div>';
+
+  // 정산은 회계다 — 값을 못 뽑았으면 0으로 넘어가지 말고 여기서 멈춘다.
+  // statusElId를 같이 받아서 어느 파일이 문제인지 화면에 남긴다.
+  function fail(statusElId, msg) {
+    const el = document.getElementById(statusElId);
+    if (el) el.textContent = '❌ ' + msg;
+    throw new Error(msg);
+  }
 
   try {
     // 파일 읽기 헬퍼
@@ -2837,35 +3262,73 @@ async function runKisAnalysis() {
 
     // ── 1. 대리점 수수료 파싱 (9780+BKY0 등 전체 대리점 합계) ──
     // 모든 테이블의 모든 23컬럼 행을 수집 후 cells[22](총합계)가 가장 큰 단 하나의 행 선택
+    const AGENCY_COLS = 23, COL_VAN = 4, COL_DESC = 15, COL_CASH = 21, COL_TOTAL = 22;
+    // 숫자 파싱: 빈칸 표시인 '-' 하나만 0으로 보고, 음수 부호는 살린다.
+    // (기존 코드는 replace(/-/g,'0')이라 '-1,234'가 '01234'=1234로 부호가 뒤집혔다)
+    const n = s => {
+      const t = String(s).replace(/,/g, '').replace(/\s/g, '').trim();
+      if (t === '' || t === '-') return 0;
+      const v = parseInt(t, 10);
+      return isNaN(v) ? 0 : v;
+    };
+
     const agencyHtml = await readHtml(fAgency);
     const agencyDoc = new DOMParser().parseFromString(agencyHtml, 'text/html');
     const agencyTables = agencyDoc.querySelectorAll('table');
     let totalVan = 0, totalDesc = 0, totalCash = 0;
+    const warnings = [];
 
     const seen = new Set();
-    let bestTotal = 0, bestRow = null;
+    let bestTotal = 0, bestRow = null, candidateCount = 0, tieCount = 0;
     for (const tbl of agencyTables) {
       for (const row of tbl.querySelectorAll('tr')) {
         const cells = [...row.querySelectorAll('td,th')].map(c => c.textContent.trim()).filter(c=>c);
-        if (cells.length !== 23) continue;
+        if (cells.length !== AGENCY_COLS) continue;
         const key = cells.join('|');
         if (seen.has(key)) continue;
         seen.add(key);
-        const n = s => parseInt(s.replace(/,/g,'').replace(/-/g,'0'))||0;
-        const rowTotal = n(cells[22]);
-        if (rowTotal > bestTotal) { bestTotal = rowTotal; bestRow = cells; }
+        candidateCount++;
+        const rowTotal = n(cells[COL_TOTAL]);
+        if (rowTotal > bestTotal) { bestTotal = rowTotal; bestRow = cells; tieCount = 1; }
+        else if (rowTotal === bestTotal && bestRow) { tieCount++; }
       }
     }
-    if (bestRow) {
-      const n = s => parseInt(s.replace(/,/g,'').replace(/-/g,'0'))||0;
-      totalVan  = n(bestRow[4]);
-      totalDesc = n(bestRow[15]);
-      totalCash = n(bestRow[21]);
+
+    // 실패를 조용히 넘기지 않는다 — 아래 어느 경우든 전 가맹점 수수료가 0으로 계산되므로
+    // 그대로 진행하면 '0원짜리 정산'이 정상처럼 저장된다.
+    if (candidateCount === 0) {
+      fail('kis-agency-status',
+        '①대리점 수수료 파일에서 ' + AGENCY_COLS + '개 컬럼 행을 하나도 못 찾았습니다. ' +
+        '파일 순서가 바뀌었거나(①에 다른 파일 업로드) KIS 리포트 양식이 변경됐을 수 있습니다.');
+    }
+    if (!bestRow || bestTotal <= 0) {
+      fail('kis-agency-status',
+        '①대리점 수수료 파일에서 합계 행을 찾지 못했습니다 (후보 ' + candidateCount + '행, 총합계가 모두 0 이하). ' +
+        '해당 월 실적이 없는 파일이거나 합계 컬럼 위치가 바뀌었습니다.');
+    }
+
+    totalVan  = n(bestRow[COL_VAN]);
+    totalDesc = n(bestRow[COL_DESC]);
+    totalCash = n(bestRow[COL_CASH]);
+
+    // 교차검증: 총합계가 큰데 뽑아낸 3개 항목이 전부 0이면 컬럼 위치가 어긋난 것이다.
+    // (컬럼 의미를 단정하지 않고 "총합계가 있는데 구성요소가 전무할 수는 없다"만 본다)
+    if (totalVan === 0 && totalDesc === 0 && totalCash === 0) {
+      fail('kis-agency-status',
+        '합계 행은 찾았지만(총합계 ₩' + bestTotal.toLocaleString() + ') ' +
+        '유상후불·DESC·현금이 모두 0으로 읽혔습니다. 컬럼 위치가 바뀐 것으로 보입니다 — 원본 파일을 확인해주세요.');
+    }
+    // 하드 실패는 아니지만 사람이 봐야 하는 것들
+    const sum3 = totalVan + totalDesc + totalCash;
+    if (sum3 > bestTotal) {
+      warnings.push('①대리점 파일: 유상후불+DESC+현금(₩' + sum3.toLocaleString() +
+        ')이 총합계(₩' + bestTotal.toLocaleString() + ')보다 큽니다. 합계 행을 잘못 잡았을 수 있습니다.');
+    }
+    if (tieCount > 1) {
+      warnings.push('①대리점 파일: 총합계가 같은 행이 ' + tieCount + '개라 합계 행이 모호합니다. 첫 행을 사용했습니다.');
     }
     document.getElementById('kis-agency-status').textContent =
-      bestTotal > 0
-        ? '✅ 유상후불 ₩' + totalVan.toLocaleString() + ' / DESC ₩' + totalDesc.toLocaleString() + ' / 현금 ₩' + totalCash.toLocaleString()
-        : '❌ 합계 행을 찾지 못했습니다';
+      '✅ 유상후불 ₩' + totalVan.toLocaleString() + ' / DESC ₩' + totalDesc.toLocaleString() + ' / 현금 ₩' + totalCash.toLocaleString();
 
     // ── 2. 사업자정률실적조회 파싱 (9780+BKY0 등 전체 가맹점 통합, 진짜 xlsx) ──
     const perfBin = await readBinary(fPerf);
@@ -2874,17 +3337,23 @@ async function runKisAnalysis() {
     const perfArr = XLSX.utils.sheet_to_json(perfWs, { header:1, defval:'' });
     // 데이터 행: 첫 컬럼(NO)이 숫자이고 가맹점명(인덱스7)이 있는 행
     const perfRows = perfArr.filter(r => r[0] !== '' && !isNaN(parseInt(r[0])) && r[7]);
+    if (perfRows.length === 0) {
+      fail('kis-perf-status',
+        '②사업자정률실적 파일에서 데이터 행을 찾지 못했습니다. ' +
+        '파일 순서가 바뀌었거나(②에 다른 파일 업로드) 컬럼 구조가 변경됐을 수 있습니다.');
+    }
 
-    // 사업자번호(biz_no) 기준 그룹핑 — 단, 확인된 동일 사업자 6곳만 병합
+    // 사업자번호(biz_no) 기준 그룹핑 — 단, 확인된 동일 사업자만 병합
+    // 병합 대상 목록은 merchant_merge_rules 테이블에서 로드한다 (하드코딩 제거)
     // (광명캠퍼스/크레오어학원광명캠퍼스는 브랜드명이 달라 병합 제외, 나머지는 이름 그대로 유지)
-    const MERGE_BIZ_WHITELIST = new Set([
-      '1389106141', // 최선어학원평촌고등관학원 (+ 디와이비최선고등관학원)
-      '1249476877', // 최선어학원 수원캠퍼스 (+ 최선어학원수원정자캠퍼스)
-      '1389056488', // 디와이비 최선어학원초중등평촌 (+ 디와이비 최선어학원)
-      '1359137534', // 최선어학원 수지캠퍼스 (+ 수지캠퍼스초등관 등)
-      '1209070515', // 최선어학원 일산캠퍼스
-      '1058622701', // (주) 오투라인
-    ]);
+    let whitelist;
+    try {
+      whitelist = await loadMergeWhitelist();
+    } catch(e) {
+      // 규칙을 못 읽으면 병합이 안 된 채 계산돼 가맹점이 쪼개진다 → 조용히 진행하지 않는다
+      fail('kis-perf-status', e.message);
+    }
+
     const merchantMap = {};
     perfRows.forEach(r => {
       const name   = String(r[7]).trim();
@@ -2892,7 +3361,7 @@ async function runKisAnalysis() {
       const count  = parseFloat(r[9])  || 0;
       const amount = parseFloat(r[10]) || 0;
       // 화이트리스트에 있는 사업자만 biz_no로 병합, 그 외는 이름 그대로 개별 유지
-      const key = (bizRaw && MERGE_BIZ_WHITELIST.has(bizRaw)) ? bizRaw : ('NAME_' + name);
+      const key = (bizRaw && whitelist.has(bizRaw)) ? bizRaw : ('NAME_' + name);
       if (!merchantMap[key]) {
         merchantMap[key] = { name, biz_no: bizRaw, approval: 0, monthly: 0, nameAmounts: {} };
       }
@@ -2912,16 +3381,29 @@ async function runKisAnalysis() {
     const rateWb  = XLSX.read(rateBin, { type: 'binary' });
     const rateWs  = rateWb.Sheets[rateWb.SheetNames[0]];
     const rateArr = XLSX.utils.sheet_to_json(rateWs, { header:1, defval:'' });
+    if (!rateArr[0] || rateArr[0].length <= 2) {
+      fail('kis-rate-status',
+        '③유상후불 지급율표에서 가수율 구간 헤더를 읽지 못했습니다. ' +
+        '파일 순서가 바뀌었거나(③에 다른 파일 업로드) 양식이 변경됐을 수 있습니다.');
+    }
     const rateRanges = rateArr[0].slice(2);
     const amountTable = [];
     for (let i = 2; i < rateArr.length; i++) {
       const row = rateArr[i];
-      if (!row[0]) continue;
+      // 하한이 0인 최저 구간을 버리지 않도록 숫자 여부로 판단한다.
+      // (기존 !row[0]은 0을 falsy로 보고 건너뛰어, 소액 가맹점이 findAmountRow 폴백으로
+      //  최고 구간 요율에 잡히는 과대계산이 발생했다)
+      if (row[0] === '' || row[0] === null || row[0] === undefined) continue;
+      if (isNaN(parseFloat(row[0]))) continue;
       try {
         const lo = parseFloat(row[0]), hi = row[1] ? parseFloat(row[1]) : Infinity;
         const profits = row.slice(2, 2+rateRanges.length).map(x => parseFloat(x)||0);
         amountTable.push({ lo, hi, profits });
       } catch(e) {}
+    }
+    if (amountTable.length === 0) {
+      fail('kis-rate-status',
+        '③유상후불 지급율표에서 금액 구간을 하나도 읽지 못했습니다. 이 표가 없으면 가맹점별 배분 비중을 계산할 수 없습니다.');
     }
     document.getElementById('kis-rate-status').textContent = '✅ ' + amountTable.length + '개 구간 로드';
 
@@ -2957,6 +3439,15 @@ async function runKisAnalysis() {
     });
     const totalRaw = raw.reduce((s,v)=>s+v, 0);
     const totalApproval = merchantList.reduce((s,m)=>s+m.approval, 0);
+    // 배분 분모가 0이면 유상후불(totalVan)이 아무에게도 안 나뉘고 전부 사라진다 → 조용한 과소정산
+    if (totalRaw <= 0) {
+      fail('kis-rate-status',
+        '지급율표로 계산한 배분 비중이 전부 0입니다. 유상후불 ₩' + totalVan.toLocaleString() +
+        '을 가맹점에 나눌 수 없어 중단했습니다 — ③지급율표의 가수율/금액 구간을 확인해주세요.');
+    }
+    if (totalApproval <= 0) {
+      fail('kis-perf-status', '②실적 파일의 총 승인건수가 0입니다. DESC·현금 수수료를 배분할 수 없습니다.');
+    }
     const descPerTx = totalApproval > 0 ? totalDesc / totalApproval : 0; // 건수 비율 근사 배분
     const cashPerTx = totalApproval > 0 ? totalCash / totalApproval : 0;
 
@@ -2975,14 +3466,25 @@ async function runKisAnalysis() {
     }).sort((a,b) => b.total - a.total);
 
     const grandTotal = totalVan + totalDesc + totalCash;
-    const analysisMonth = document.getElementById('kis-month').value;
-    if (!analysisMonth) return toast('정산 월을 선택해주세요.', 'error');
+    // 배분 결과 총액이 원본 총액과 어긋나면(반올림 오차 이상) 사람이 봐야 한다
+    const allocated = results.reduce((s,r) => s + r.total, 0);
+    if (Math.abs(allocated - grandTotal) > Math.max(10, grandTotal * 0.001)) {
+      warnings.push('배분 합계(₩' + Math.round(allocated).toLocaleString() +
+        ')가 원본 총액(₩' + grandTotal.toLocaleString() + ')과 다릅니다.');
+    }
 
-    window._kisResult = { results, totalVan, totalDesc, totalCash, grandTotal, analysisMonth };
+    window._kisResult = { results, totalVan, totalDesc, totalCash, grandTotal, analysisMonth, warnings };
     renderKisResult(window._kisResult);
 
   } catch(e) {
-    document.getElementById('kis-result').innerHTML = '<div class="card" style="padding:20px;color:red">❌ 분석 오류: ' + e.message + '</div>';
+    // 분석이 멈추면 이전 분석 결과가 남아 저장되는 일이 없도록 확실히 비운다
+    window._kisResult = null;
+    document.getElementById('kis-result').innerHTML =
+      '<div class="card" style="padding:20px;border:1px solid #fca5a5;background:#fef2f2">' +
+      '<div style="color:#b91c1c;font-weight:700;margin-bottom:6px">❌ 분석을 중단했습니다</div>' +
+      '<div style="color:#7f1d1d;font-size:13px;line-height:1.6">' + e.message + '</div>' +
+      '<div style="color:#991b1b;font-size:12px;margin-top:10px">' +
+      '정산 금액이 틀리게 저장되는 것을 막기 위해 계산을 진행하지 않았습니다. 저장된 기존 데이터는 그대로입니다.</div></div>';
     console.error(e);
   }
 }
@@ -3046,6 +3548,17 @@ async function renderKisResult(data) {
   const valid = results.filter(r => r.total > 0);
   const top5  = valid.slice(0, 5);
 
+  // 하드 실패는 아니지만 저장 전에 사람이 확인해야 하는 항목
+  const warns = data.warnings || [];
+  const warnHtml = warns.length === 0 ? '' : `
+    <div class="card" style="margin-top:16px;border:1px solid #f0d080;background:#fffdf5">
+      <div class="card-header"><div class="card-title" style="color:#92400e">⚠ 확인 필요 (${warns.length}건)</div></div>
+      <div style="padding:8px 16px 14px;font-size:12px;color:#92400e;line-height:1.7">
+        ${warns.map(w => '· ' + w).join('<br>')}
+        <div style="margin-top:8px;color:#7c2d12">원본 파일을 확인한 뒤 저장하세요.</div>
+      </div>
+    </div>`;
+
   // 미매칭 가맹점 카드 (저장 직후에만 표시됨)
   const unmatched = window._kisUnmatched || [];
   let unmatchedHtml = '';
@@ -3082,7 +3595,7 @@ async function renderKisResult(data) {
     </div>`;
   }
 
-  let html = unmatchedHtml + `
+  let html = warnHtml + unmatchedHtml + `
   <div class="metrics" style="margin-top:16px">
     <div class="metric"><div class="metric-label">총 정산액</div><div class="metric-value" style="color:#1F3864">₩${grandTotal.toLocaleString()}</div></div>
     <div class="metric"><div class="metric-label">유상후불</div><div class="metric-value" style="font-size:15px">₩${totalVan.toLocaleString()}</div></div>
@@ -3160,6 +3673,20 @@ function exportKisExcel() {
 
 async function saveKisToSupabase(month) {
   if (!window._kisResult) return toast('먼저 분석을 실행해주세요.', 'error');
+
+  // 저장은 해당 월 기존 데이터를 먼저 지우고 넣는다 → 빈/0원 결과를 저장하면 정상 데이터가 날아간다
+  const _k = window._kisResult;
+  if (!_k.results || _k.results.length === 0) {
+    return toast('가맹점 결과가 비어 있어 저장할 수 없습니다.', 'error');
+  }
+  if (!(_k.grandTotal > 0)) {
+    return toast('총 수수료가 0원이라 저장할 수 없습니다. 원본 파일을 확인해주세요.', 'error');
+  }
+  const warns = _k.warnings || [];
+  if (warns.length > 0 &&
+      !confirm('확인이 필요한 항목이 ' + warns.length + '건 있습니다:\n\n· ' + warns.join('\n· ') +
+               '\n\n그래도 저장할까요?')) return;
+
   if (!confirm(month + ' 정산 데이터를 Supabase에 저장할까요?\n기존 동일 월 데이터는 덮어씁니다.')) return;
 
   // 저장할 데이터 미리 준비 — 거래 0건 가맹점도 포함 (휴면 상태로 정확히 반영하기 위함)
